@@ -38,7 +38,7 @@ const formatTime = (time: number): string => {
 
 export function PlanViewer({ plan, onPlanChange }: PlanViewerProps) {
   const [weekFilter, setWeekFilter] = useState<'all' | 'A' | 'B'>('all');
-  const [personFilter, setPersonFilter] = useState('');
+  const [personFilter, setPersonFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
   const allInitials = useMemo(() => {
@@ -58,7 +58,7 @@ export function PlanViewer({ plan, onPlanChange }: PlanViewerProps) {
         if (weekFilter === 'A' && !dayPlan.dayOfWeekABCombo.isWeekA) return false;
         if (weekFilter === 'B' && dayPlan.dayOfWeekABCombo.isWeekA) return false;
         
-        if (personFilter) {
+        if (personFilter && personFilter !== 'all') {
           const hasPersonInParties = dayPlan.parties.some(
             party => party.driver === personFilter || party.passengers.includes(personFilter)
           );
@@ -192,7 +192,7 @@ export function PlanViewer({ plan, onPlanChange }: PlanViewerProps) {
             <SelectValue placeholder="Filter by person" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All people</SelectItem>
+            <SelectItem value="all">All people</SelectItem>
             {allInitials.map(initials => (
               <SelectItem key={initials} value={initials}>{initials}</SelectItem>
             ))}
