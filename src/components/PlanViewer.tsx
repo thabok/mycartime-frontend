@@ -21,7 +21,7 @@ const DAY_NAMES: Record<string, string> = {
 const formatTime = (time: number): string => {
   const hours = Math.floor(time / 100);
   const minutes = time % 100;
-  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}h`;
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 };
 
 export function PlanViewer({ plan, onPlanChange }: PlanViewerProps) {
@@ -59,8 +59,8 @@ export function PlanViewer({ plan, onPlanChange }: PlanViewerProps) {
       : '';
 
     return (
-      <li key={`${party.driver}-${party.departureTime}`} className="text-sm leading-relaxed">
-        <span className="text-muted-foreground">[{formatTime(party.departureTime)}]</span>
+      <li key={`${party.driver}-${party.time}`} className="text-sm leading-relaxed">
+        <span className="text-muted-foreground">[{formatTime(party.time)}]</span>
         {' '}
         <span className={cn("font-semibold", isDriverHighlighted && "text-primary")}>
           {driverPrefix}{party.driver}
@@ -75,11 +75,11 @@ export function PlanViewer({ plan, onPlanChange }: PlanViewerProps) {
   const renderDayRow = ([dayKey, dayPlan]: [string, DayPlan]) => {
     const { dayOfWeekABCombo, parties } = dayPlan;
     const schoolboundParties = parties
-      .filter(p => p.direction === 'SCHOOLBOUND')
-      .sort((a, b) => a.departureTime - b.departureTime);
+      .filter(p => p.schoolbound === true)
+      .sort((a, b) => a.time - b.time);
     const homeboundParties = parties
-      .filter(p => p.direction === 'HOMEBOUND')
-      .sort((a, b) => a.departureTime - b.departureTime);
+      .filter(p => p.schoolbound === false)
+      .sort((a, b) => a.time - b.time);
     
     return (
       <tr key={dayKey} className="border-b border-border/50 hover:bg-muted/30 transition-colors">

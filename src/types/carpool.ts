@@ -25,10 +25,13 @@ export interface DayOfWeekABCombo {
 }
 
 export interface Party {
-  direction: 'SCHOOLBOUND' | 'HOMEBOUND';
+  dayOfWeekABCombo: DayOfWeekABCombo;
   driver: string;
+  time: number;
   passengers: string[];
-  departureTime: number;
+  isDesignatedDriver: boolean;
+  drivesDespiteCustomPrefs: boolean;
+  schoolbound: boolean;
 }
 
 export interface DayPlan {
