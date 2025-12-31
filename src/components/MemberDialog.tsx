@@ -19,6 +19,7 @@ interface MemberDialogProps {
   onOpenChange: (open: boolean) => void;
   member?: Member | null;
   onSave: (member: Member) => void;
+  initialTab?: 'basic' | 'custom';
 }
 
 const DAY_NAMES = ['Mon A', 'Tue A', 'Wed A', 'Thu A', 'Fri A', 'Mon B', 'Tue B', 'Wed B', 'Thu B', 'Fri B'];
@@ -34,7 +35,7 @@ const createEmptyCustomDay = (): CustomDay => ({
   customEnd: '',
 });
 
-export function MemberDialog({ open, onOpenChange, member, onSave }: MemberDialogProps) {
+export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 'basic' }: MemberDialogProps) {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [initials, setInitials] = useState('');
@@ -59,8 +60,8 @@ export function MemberDialog({ open, onOpenChange, member, onSave }: MemberDialo
       setIsPartTime(false);
       setCustomDays({});
     }
-    setActiveTab('basic');
-  }, [member, open]);
+    setActiveTab(initialTab);
+  }, [member, open, initialTab]);
 
   useEffect(() => {
     if (!member && firstName && lastName) {

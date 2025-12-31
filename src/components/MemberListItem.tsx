@@ -1,19 +1,23 @@
 import { Member } from '@/types/carpool';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Car, Edit, Trash2, Clock, Settings } from 'lucide-react';
+import { Car, Trash2, Clock, Settings } from 'lucide-react';
 
 interface MemberListItemProps {
   member: Member;
   onEdit: (member: Member) => void;
+  onEditCustom: (member: Member) => void;
   onDelete: (member: Member) => void;
 }
 
-export function MemberListItem({ member, onEdit, onDelete }: MemberListItemProps) {
+export function MemberListItem({ member, onEdit, onEditCustom, onDelete }: MemberListItemProps) {
   const hasCustomDays = member.customDays && Object.keys(member.customDays).length > 0;
   
   return (
-    <div className="group flex items-center gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors animate-fade-in">
+    <div 
+      className="group flex items-center gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors animate-fade-in cursor-pointer"
+      onClick={() => onEdit(member)}
+    >
       <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-semibold text-sm flex-shrink-0">
         {member.initials}
       </div>
@@ -48,16 +52,17 @@ export function MemberListItem({ member, onEdit, onDelete }: MemberListItemProps
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
         <Button
           variant="ghost"
-          size="icon"
-          onClick={() => onEdit(member)}
-          className="h-8 w-8 text-muted-foreground hover:text-foreground"
+          size="sm"
+          onClick={(e) => { e.stopPropagation(); onEditCustom(member); }}
+          className="h-8 text-muted-foreground hover:text-foreground text-xs gap-1"
         >
-          <Edit className="h-4 w-4" />
+          <Settings className="h-3.5 w-3.5" />
+          Custom
         </Button>
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => onDelete(member)}
+          onClick={(e) => { e.stopPropagation(); onDelete(member); }}
           className="h-8 w-8 text-muted-foreground hover:text-destructive"
         >
           <Trash2 className="h-4 w-4" />

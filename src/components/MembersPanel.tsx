@@ -37,6 +37,7 @@ export function MembersPanel({ members, onMembersChange }: MembersPanelProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [deletingMember, setDeletingMember] = useState<Member | null>(null);
+  const [dialogInitialTab, setDialogInitialTab] = useState<'basic' | 'custom'>('basic');
   const { toast } = useToast();
 
   const filteredMembers = useMemo(() => {
@@ -56,6 +57,13 @@ export function MembersPanel({ members, onMembersChange }: MembersPanelProps) {
 
   const handleEditMember = (member: Member) => {
     setEditingMember(member);
+    setDialogInitialTab('basic');
+    setDialogOpen(true);
+  };
+
+  const handleEditCustom = (member: Member) => {
+    setEditingMember(member);
+    setDialogInitialTab('custom');
     setDialogOpen(true);
   };
 
@@ -202,6 +210,7 @@ export function MembersPanel({ members, onMembersChange }: MembersPanelProps) {
               key={member.initials}
               member={member}
               onEdit={handleEditMember}
+              onEditCustom={handleEditCustom}
               onDelete={handleDeleteMember}
             />
           ))}
@@ -213,6 +222,7 @@ export function MembersPanel({ members, onMembersChange }: MembersPanelProps) {
               key={member.initials}
               member={member}
               onEdit={handleEditMember}
+              onEditCustom={handleEditCustom}
               onDelete={handleDeleteMember}
             />
           ))}
@@ -224,6 +234,7 @@ export function MembersPanel({ members, onMembersChange }: MembersPanelProps) {
         onOpenChange={setDialogOpen}
         member={editingMember}
         onSave={handleSaveMember}
+        initialTab={dialogInitialTab}
       />
 
       <AlertDialog open={!!deletingMember} onOpenChange={() => setDeletingMember(null)}>

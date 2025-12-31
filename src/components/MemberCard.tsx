@@ -2,19 +2,23 @@ import { Member } from '@/types/carpool';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Car, Edit, Trash2, Clock } from 'lucide-react';
+import { Car, Trash2, Clock, Settings } from 'lucide-react';
 
 interface MemberCardProps {
   member: Member;
   onEdit: (member: Member) => void;
+  onEditCustom: (member: Member) => void;
   onDelete: (member: Member) => void;
 }
 
-export function MemberCard({ member, onEdit, onDelete }: MemberCardProps) {
+export function MemberCard({ member, onEdit, onEditCustom, onDelete }: MemberCardProps) {
   const hasCustomDays = member.customDays && Object.keys(member.customDays).length > 0;
   
   return (
-    <Card className="group surface-elevated hover:shadow-lg transition-all duration-200 animate-fade-in">
+    <Card 
+      className="group surface-elevated hover:shadow-lg transition-all duration-200 animate-fade-in cursor-pointer"
+      onClick={() => onEdit(member)}
+    >
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -43,16 +47,17 @@ export function MemberCard({ member, onEdit, onDelete }: MemberCardProps) {
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <Button
               variant="ghost"
-              size="icon"
-              onClick={() => onEdit(member)}
-              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              size="sm"
+              onClick={(e) => { e.stopPropagation(); onEditCustom(member); }}
+              className="h-8 text-muted-foreground hover:text-foreground text-xs gap-1"
             >
-              <Edit className="h-4 w-4" />
+              <Settings className="h-3.5 w-3.5" />
+              Custom
             </Button>
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => onDelete(member)}
+              onClick={(e) => { e.stopPropagation(); onDelete(member); }}
               className="h-8 w-8 text-muted-foreground hover:text-destructive"
             >
               <Trash2 className="h-4 w-4" />
