@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { DrivingPlan, DayPlan, Party } from '@/types/carpool';
+import { useState, useMemo, useCallback } from 'react';
+import { DrivingPlan, DayPlan, Party, Member } from '@/types/carpool';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Pencil, Users } from 'lucide-react';
@@ -9,6 +9,7 @@ import { DayPlanEditDialog } from './DayPlanEditDialog';
 interface PlanViewerProps {
   plan: DrivingPlan;
   onPlanChange: (plan: DrivingPlan) => void;
+  members: Member[];
 }
 
 const DAY_NAMES: Record<string, string> = {
@@ -33,11 +34,27 @@ interface Transfer {
   hasTimeWarning: boolean;
 }
 
-export function PlanViewer({ plan, onPlanChange }: PlanViewerProps) {
+export function PlanViewer({ plan, onPlanChange, members }: PlanViewerProps) {
   const [weekFilter, setWeekFilter] = useState<'all' | 'A' | 'B'>('all');
   const [personFilter, setPersonFilter] = useState('');
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingDayPlan, setEditingDayPlan] = useState<DayPlan | null>(null);
+
+  // Create lookup map: initials -> Member
+  const membersByInitials = useMemo(() => {
+    const map = new Map<string, Member>();
+    members.forEach(m => map.set(m.initials.toLowerCase(), m));
+    return map;
+  }, [members]);
+
+  // Format initials as "FirstName (Initials)"
+  const formatPerson = useCallback((initials: string) => {
+    const member = membersByInitials.get(initials.toLowerCase());
+    if (member) {
+      return `${member.firstName} (${member.initials})`;
+    }
+    return initials;
+  }, [membersByInitials]);
 
   const filteredDayPlans = useMemo(() => {
     return Object.entries(plan.dayPlans)
@@ -47,18 +64,34 @@ export function PlanViewer({ plan, onPlanChange }: PlanViewerProps) {
         
         if (personFilter.trim()) {
           const query = personFilter.trim().toLowerCase();
-          const hasPersonInParties = dayPlan.parties.some(
-            party => 
-              party.driver.toLowerCase().includes(query) || 
-              party.passengers.some(p => p.toLowerCase().includes(query))
-          );
+          const hasPersonInParties = dayPlan.parties.some(party => {
+            // Check driver by initials or name
+            const driverMember = membersByInitials.get(party.driver.toLowerCase());
+            const driverMatches = party.driver.toLowerCase().includes(query) ||
+              (driverMember && (
+                driverMember.firstName.toLowerCase().includes(query) ||
+                driverMember.lastName.toLowerCase().includes(query)
+              ));
+            
+            // Check passengers by initials or name
+            const passengerMatches = party.passengers.some(p => {
+              const passengerMember = membersByInitials.get(p.toLowerCase());
+              return p.toLowerCase().includes(query) ||
+                (passengerMember && (
+                  passengerMember.firstName.toLowerCase().includes(query) ||
+                  passengerMember.lastName.toLowerCase().includes(query)
+                ));
+            });
+            
+            return driverMatches || passengerMatches;
+          });
           if (!hasPersonInParties) return false;
         }
         
         return true;
       })
       .sort(([a], [b]) => parseInt(a) - parseInt(b));
-  }, [plan, weekFilter, personFilter]);
+  }, [plan, weekFilter, personFilter, membersByInitials]);
 
   const handleEditDay = (dayPlan: DayPlan) => {
     setEditingDayPlan(dayPlan);
@@ -111,11 +144,18 @@ export function PlanViewer({ plan, onPlanChange }: PlanViewerProps) {
 
   const renderPartyLine = (party: Party, filterQuery: string) => {
     const query = filterQuery.trim().toLowerCase();
-    const isDriverHighlighted = query && party.driver.toLowerCase().includes(query);
+    const driverMember = membersByInitials.get(party.driver.toLowerCase());
+    const isDriverHighlighted = query && (
+      party.driver.toLowerCase().includes(query) ||
+      (driverMember && (
+        driverMember.firstName.toLowerCase().includes(query) ||
+        driverMember.lastName.toLowerCase().includes(query)
+      ))
+    );
     const driverPrefix = isDriverHighlighted ? '*' : '';
     
     const passengersText = party.passengers.length > 0 
-      ? ' - ' + party.passengers.join(' - ')
+      ? ' - ' + party.passengers.map(p => formatPerson(p)).join(' - ')
       : '';
 
     return (
@@ -123,7 +163,7 @@ export function PlanViewer({ plan, onPlanChange }: PlanViewerProps) {
         <span className="text-muted-foreground">[{formatTime(party.time)}]</span>
         {' '}
         <span className={cn("font-semibold", isDriverHighlighted && "text-primary")}>
-          {driverPrefix}{party.driver}
+          {driverPrefix}{formatPerson(party.driver)}
         </span>
         {passengersText && (
           <span className="text-muted-foreground">{passengersText}</span>
@@ -199,9 +239,9 @@ export function PlanViewer({ plan, onPlanChange }: PlanViewerProps) {
           </TabsList>
         </Tabs>
 
-        <div className="relative w-full sm:w-48">
+        <div className="relative w-full sm:w-56">
           <Input
-            placeholder="filter by initials"
+            placeholder="filter by name or initials"
             value={personFilter}
             onChange={(e) => setPersonFilter(e.target.value)}
             className="h-9 text-sm pl-3 pr-3"
@@ -238,6 +278,7 @@ export function PlanViewer({ plan, onPlanChange }: PlanViewerProps) {
         onOpenChange={setEditDialogOpen}
         dayPlan={editingDayPlan}
         onApplyTransfers={handleApplyTransfers}
+        members={members}
       />
     </div>
   );

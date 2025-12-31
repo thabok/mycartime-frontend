@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { DayPlan, Party } from '@/types/carpool';
+import { useState, useMemo, useCallback } from 'react';
+import { DayPlan, Party, Member } from '@/types/carpool';
 import {
   Dialog,
   DialogContent,
@@ -26,6 +26,7 @@ interface DayPlanEditDialogProps {
   onOpenChange: (open: boolean) => void;
   dayPlan: DayPlan | null;
   onApplyTransfers: (dayPlan: DayPlan, transfers: Transfer[]) => void;
+  members: Member[];
 }
 
 const DAY_NAMES: Record<string, string> = {
@@ -49,12 +50,40 @@ export function DayPlanEditDialog({
   onOpenChange,
   dayPlan,
   onApplyTransfers,
+  members,
 }: DayPlanEditDialogProps) {
   const [step, setStep] = useState<Step>('select-passenger');
   const [passengerSearch, setPassengerSearch] = useState('');
   const [targetSearch, setTargetSearch] = useState('');
   const [selectedPassenger, setSelectedPassenger] = useState<{ passenger: string; party: Party } | null>(null);
   const [transfers, setTransfers] = useState<Transfer[]>([]);
+
+  // Create lookup map: initials -> Member
+  const membersByInitials = useMemo(() => {
+    const map = new Map<string, Member>();
+    members.forEach(m => map.set(m.initials.toLowerCase(), m));
+    return map;
+  }, [members]);
+
+  // Format initials as "FirstName (Initials)"
+  const formatPerson = useCallback((initials: string) => {
+    const member = membersByInitials.get(initials.toLowerCase());
+    if (member) {
+      return `${member.firstName} (${member.initials})`;
+    }
+    return initials;
+  }, [membersByInitials]);
+
+  // Check if a query matches an initials string (by initials or name)
+  const matchesQuery = useCallback((initials: string, query: string): boolean => {
+    if (initials.toLowerCase().includes(query)) return true;
+    const member = membersByInitials.get(initials.toLowerCase());
+    if (member) {
+      return member.firstName.toLowerCase().includes(query) ||
+        member.lastName.toLowerCase().includes(query);
+    }
+    return false;
+  }, [membersByInitials]);
 
   const resetState = () => {
     setStep('select-passenger');
@@ -98,16 +127,16 @@ export function DayPlanEditDialog({
     return allPassengers.filter(({ passenger, party }) => {
       const key = `${passenger}-${party.driver}-${party.time}`;
       if (transferredPassengers.has(key)) return false;
-      return passenger.toLowerCase().includes(query);
+      return matchesQuery(passenger, query);
     });
-  }, [passengerSearch, allPassengers, transfers]);
+  }, [passengerSearch, allPassengers, transfers, matchesQuery]);
 
   // Check if search matches a driver
   const searchMatchesDriver = useMemo(() => {
     const query = passengerSearch.trim().toLowerCase();
     if (!query) return false;
-    return allDrivers.has(query) || Array.from(allDrivers).some(d => d.includes(query));
-  }, [passengerSearch, allDrivers]);
+    return Array.from(allDrivers).some(d => matchesQuery(d, query));
+  }, [passengerSearch, allDrivers, matchesQuery]);
 
   // Filter target parties based on search
   const filteredTargetParties = useMemo(() => {
@@ -124,12 +153,12 @@ export function DayPlanEditDialog({
       if (party.schoolbound !== selectedPassenger.party.schoolbound) {
         return false;
       }
-      // Match driver or any passenger
-      const matchesDriver = party.driver.toLowerCase().includes(query);
-      const matchesPassenger = party.passengers.some(p => p.toLowerCase().includes(query));
+      // Match driver or any passenger by name or initials
+      const matchesDriver = matchesQuery(party.driver, query);
+      const matchesPassenger = party.passengers.some(p => matchesQuery(p, query));
       return matchesDriver || matchesPassenger;
     });
-  }, [targetSearch, allParties, selectedPassenger]);
+  }, [targetSearch, allParties, selectedPassenger, matchesQuery]);
 
   const handleSelectPassenger = (passenger: string, party: Party) => {
     setSelectedPassenger({ passenger, party });
@@ -195,13 +224,13 @@ export function DayPlanEditDialog({
                     key={transfer.id}
                     className="flex items-center gap-2 p-2 rounded-md bg-muted/50 border border-border/50 text-sm"
                   >
-                    <span className="font-medium">{transfer.passenger}</span>
+                    <span className="font-medium">{formatPerson(transfer.passenger)}</span>
                     <span className="text-muted-foreground text-xs">
-                      [{formatTime(transfer.fromParty.time)}] {transfer.fromParty.driver}
+                      [{formatTime(transfer.fromParty.time)}] {formatPerson(transfer.fromParty.driver)}
                     </span>
                     <ArrowRight className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                     <span className="text-muted-foreground text-xs">
-                      [{formatTime(transfer.toParty.time)}] {transfer.toParty.driver}
+                      [{formatTime(transfer.toParty.time)}] {formatPerson(transfer.toParty.driver)}
                     </span>
                     {transfer.hasTimeWarning && (
                       <AlertTriangle className="h-3.5 w-3.5 text-yellow-500 flex-shrink-0" />
@@ -244,9 +273,9 @@ export function DayPlanEditDialog({
                         onClick={() => handleSelectPassenger(passenger, party)}
                         className="w-full text-left p-2 rounded-md hover:bg-muted transition-colors text-sm"
                       >
-                        <span className="font-medium">{passenger}</span>
+                        <span className="font-medium">{formatPerson(passenger)}</span>
                         <span className="text-muted-foreground ml-2">
-                          riding with {party.driver} [{formatTime(party.time)}]
+                          riding with {formatPerson(party.driver)} [{formatTime(party.time)}]
                           {party.schoolbound ? ' (schoolbound)' : ' (homebound)'}
                         </span>
                       </button>
@@ -269,13 +298,13 @@ export function DayPlanEditDialog({
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <Badge variant="secondary" className="gap-1">
-                  {selectedPassenger.passenger}
+                  {formatPerson(selectedPassenger.passenger)}
                   <button onClick={handleCancelPassengerSelection} className="ml-1">
                     <X className="h-3 w-3" />
                   </button>
                 </Badge>
                 <span className="text-sm text-muted-foreground">
-                  from {selectedPassenger.party.driver} [{formatTime(selectedPassenger.party.time)}]
+                  from {formatPerson(selectedPassenger.party.driver)} [{formatTime(selectedPassenger.party.time)}]
                 </span>
               </div>
 
@@ -308,7 +337,7 @@ export function DayPlanEditDialog({
                           )}
                         >
                           <div className="flex items-center gap-2">
-                            <span className="font-medium">{party.driver}</span>
+                            <span className="font-medium">{formatPerson(party.driver)}</span>
                             <span className="text-muted-foreground">
                               [{formatTime(party.time)}]
                             </span>
@@ -318,7 +347,7 @@ export function DayPlanEditDialog({
                           </div>
                           {party.passengers.length > 0 && (
                             <p className="text-xs text-muted-foreground mt-0.5">
-                              with {party.passengers.join(', ')}
+                              with {party.passengers.map(p => formatPerson(p)).join(', ')}
                             </p>
                           )}
                           {hasTimeWarning && (

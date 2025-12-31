@@ -49,6 +49,7 @@ const Index = () => {
               <PlanViewer
                 plan={plan}
                 onPlanChange={setPlan}
+                members={members}
               />
             ) : (
               <div className="text-center py-16">
