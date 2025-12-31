@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Pencil, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { DayPlanEditDialog } from './DayPlanEditDialog';
 
 interface PlanViewerProps {
   plan: DrivingPlan;
@@ -24,9 +25,19 @@ const formatTime = (time: number): string => {
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 };
 
+interface Transfer {
+  id: string;
+  passenger: string;
+  fromParty: Party;
+  toParty: Party;
+  hasTimeWarning: boolean;
+}
+
 export function PlanViewer({ plan, onPlanChange }: PlanViewerProps) {
   const [weekFilter, setWeekFilter] = useState<'all' | 'A' | 'B'>('all');
   const [personFilter, setPersonFilter] = useState('');
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingDayPlan, setEditingDayPlan] = useState<DayPlan | null>(null);
 
   const filteredDayPlans = useMemo(() => {
     return Object.entries(plan.dayPlans)
@@ -48,6 +59,55 @@ export function PlanViewer({ plan, onPlanChange }: PlanViewerProps) {
       })
       .sort(([a], [b]) => parseInt(a) - parseInt(b));
   }, [plan, weekFilter, personFilter]);
+
+  const handleEditDay = (dayPlan: DayPlan) => {
+    setEditingDayPlan(dayPlan);
+    setEditDialogOpen(true);
+  };
+
+  const handleApplyTransfers = (dayPlan: DayPlan, transfers: Transfer[]) => {
+    const dayKey = Object.entries(plan.dayPlans).find(
+      ([_, dp]) => dp.dayOfWeekABCombo.uniqueNumber === dayPlan.dayOfWeekABCombo.uniqueNumber
+    )?.[0];
+
+    if (!dayKey) return;
+
+    const updatedParties = [...dayPlan.parties].map(party => ({
+      ...party,
+      passengers: [...party.passengers],
+    }));
+
+    transfers.forEach(transfer => {
+      // Find source party and remove passenger
+      const sourceParty = updatedParties.find(
+        p => p.driver === transfer.fromParty.driver && p.time === transfer.fromParty.time
+      );
+      if (sourceParty) {
+        sourceParty.passengers = sourceParty.passengers.filter(p => p !== transfer.passenger);
+      }
+
+      // Find target party and add passenger
+      const targetParty = updatedParties.find(
+        p => p.driver === transfer.toParty.driver && p.time === transfer.toParty.time
+      );
+      if (targetParty) {
+        targetParty.passengers.push(transfer.passenger);
+      }
+    });
+
+    const updatedPlan: DrivingPlan = {
+      ...plan,
+      dayPlans: {
+        ...plan.dayPlans,
+        [dayKey]: {
+          ...dayPlan,
+          parties: updatedParties,
+        },
+      },
+    };
+
+    onPlanChange(updatedPlan);
+  };
 
   const renderPartyLine = (party: Party, filterQuery: string) => {
     const query = filterQuery.trim().toLowerCase();
@@ -111,6 +171,7 @@ export function PlanViewer({ plan, onPlanChange }: PlanViewerProps) {
         </td>
         <td className="py-3 px-2 align-top">
           <button 
+            onClick={() => handleEditDay(dayPlan)}
             className="p-1.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
             title="Edit day plan"
           >
@@ -171,6 +232,13 @@ export function PlanViewer({ plan, onPlanChange }: PlanViewerProps) {
           <p className="text-muted-foreground text-sm">No day plans match your filters</p>
         </div>
       )}
+
+      <DayPlanEditDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        dayPlan={editingDayPlan}
+        onApplyTransfers={handleApplyTransfers}
+      />
     </div>
   );
 }
