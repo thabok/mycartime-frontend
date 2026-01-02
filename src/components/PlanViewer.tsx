@@ -35,7 +35,7 @@ interface Transfer {
 }
 
 export function PlanViewer({ plan, onPlanChange, members }: PlanViewerProps) {
-  const [weekFilter, setWeekFilter] = useState<'all' | 'A' | 'B'>('all');
+  const [weekFilter, setWeekFilter] = useState<'summary' | 'all' | 'A' | 'B'>('summary');
   const [personFilter, setPersonFilter] = useState('');
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingDayPlan, setEditingDayPlan] = useState<DayPlan | null>(null);
@@ -154,13 +154,21 @@ export function PlanViewer({ plan, onPlanChange, members }: PlanViewerProps) {
     );
     const driverPrefix = isDriverHighlighted ? '*' : '';
     
-    const passengersText = party.passengers.length > 0 
-      ? ' · ' + party.passengers.map(p => formatPerson(p)).join(' · ')
+    const passengersFormatted = party.passengers.map(p => {
+      const member = membersByInitials.get(p.toLowerCase());
+      if (member) {
+        return `${member.firstName}\u00A0(${member.initials})`;
+      }
+      return p;
+    });
+    
+    const passengersText = passengersFormatted.length > 0 
+      ? ' · ' + passengersFormatted.join(' · ')
       : '';
 
     return (
       <div key={`${party.driver}-${party.time}`} className={cn(
-        "text-sm leading-relaxed py-1",
+        "text-sm leading-tight py-0.5",
         !isLast && "border-b border-border/30"
       )}>
         <span className="text-muted-foreground font-mono">[{formatTime(party.time)}]</span>
@@ -186,7 +194,7 @@ export function PlanViewer({ plan, onPlanChange, members }: PlanViewerProps) {
     
     return (
       <tr key={dayKey} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
-        <td className="py-3 px-4 align-top whitespace-nowrap font-medium">
+        <td className="py-1.5 px-4 align-top whitespace-nowrap font-medium">
           <div>
             {DAY_NAMES[dayOfWeekABCombo.dayOfWeek]}
           </div>
@@ -194,7 +202,7 @@ export function PlanViewer({ plan, onPlanChange, members }: PlanViewerProps) {
             ({dayOfWeekABCombo.isWeekA ? 'A' : 'B'})
           </div>
         </td>
-        <td className="py-3 px-4 align-top">
+        <td className="py-1.5 px-4 align-top">
           {schoolboundParties.length > 0 ? (
             <div>
               {schoolboundParties.map((party, idx) => renderPartyLine(party, personFilter, idx === schoolboundParties.length - 1))}
@@ -203,7 +211,7 @@ export function PlanViewer({ plan, onPlanChange, members }: PlanViewerProps) {
             <span className="text-muted-foreground text-sm">—</span>
           )}
         </td>
-        <td className="py-3 px-4 align-top">
+        <td className="py-1.5 px-4 align-top">
           {homeboundParties.length > 0 ? (
             <div>
               {homeboundParties.map((party, idx) => renderPartyLine(party, personFilter, idx === homeboundParties.length - 1))}
@@ -212,7 +220,7 @@ export function PlanViewer({ plan, onPlanChange, members }: PlanViewerProps) {
             <span className="text-muted-foreground text-sm">—</span>
           )}
         </td>
-        <td className="py-3 px-2 align-top">
+        <td className="py-1.5 px-2 align-top">
           <button 
             onClick={() => handleEditDay(dayPlan)}
             className="p-1.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
@@ -225,39 +233,21 @@ export function PlanViewer({ plan, onPlanChange, members }: PlanViewerProps) {
     );
   };
 
-  const [viewTab, setViewTab] = useState<'schedule' | 'summary'>('schedule');
-
   return (
     <div className="space-y-4 animate-fade-in">
-      <Tabs value={viewTab} onValueChange={(v) => setViewTab(v as typeof viewTab)}>
-        <TabsList className="h-9">
-          <TabsTrigger value="schedule" className="text-sm px-4 gap-2">
-            <Users className="h-4 w-4" />
-            Schedule
-          </TabsTrigger>
-          <TabsTrigger value="summary" className="text-sm px-4 gap-2">
-            <FileText className="h-4 w-4" />
-            Summary
-          </TabsTrigger>
-        </TabsList>
+      <Tabs value={weekFilter} onValueChange={(v) => setWeekFilter(v as typeof weekFilter)}>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <TabsList className="h-9">
+            <TabsTrigger value="summary" className="text-sm px-4 gap-2">
+              <FileText className="h-4 w-4" />
+              Summary
+            </TabsTrigger>
+            <TabsTrigger value="A" className="text-sm px-4">Week A</TabsTrigger>
+            <TabsTrigger value="B" className="text-sm px-4">Week B</TabsTrigger>
+            <TabsTrigger value="all" className="text-sm px-4">Complete Plan</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="summary" className="mt-4">
-          <div className="p-4 rounded-lg bg-muted/50 border border-border/50">
-            <p className="text-sm text-foreground whitespace-pre-wrap">{plan.summary}</p>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="schedule" className="mt-4 space-y-4">
-          {/* Filters Row */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <Tabs value={weekFilter} onValueChange={(v) => setWeekFilter(v as typeof weekFilter)}>
-              <TabsList className="h-9">
-                <TabsTrigger value="A" className="text-sm px-4">Week A</TabsTrigger>
-                <TabsTrigger value="B" className="text-sm px-4">Week B</TabsTrigger>
-                <TabsTrigger value="all" className="text-sm px-4">Complete Plan</TabsTrigger>
-              </TabsList>
-            </Tabs>
-
+          {weekFilter !== 'summary' && (
             <div className="relative w-full sm:w-56">
               <Input
                 placeholder="filter by name or initials"
@@ -266,32 +256,42 @@ export function PlanViewer({ plan, onPlanChange, members }: PlanViewerProps) {
                 className="h-9 text-sm pl-3 pr-3"
               />
             </div>
-          </div>
-
-          {/* Table */}
-          <div className="rounded-lg border border-border overflow-hidden">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-muted/50 border-b border-border">
-                  <th className="py-2.5 px-4 text-left text-sm font-semibold text-foreground w-28">Day</th>
-                  <th className="py-2.5 px-4 text-left text-sm font-semibold text-foreground">Schoolbound</th>
-                  <th className="py-2.5 px-4 text-left text-sm font-semibold text-foreground">Homebound</th>
-                  <th className="py-2.5 px-2 w-12"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredDayPlans.map(renderDayRow)}
-              </tbody>
-            </table>
-          </div>
-
-          {filteredDayPlans.length === 0 && (
-            <div className="text-center py-12 border border-border rounded-lg">
-              <Users className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-              <p className="text-muted-foreground text-sm">No day plans match your filters</p>
-            </div>
           )}
+        </div>
+
+        <TabsContent value="summary" className="mt-4">
+          <div className="p-4 rounded-lg bg-muted/50 border border-border/50">
+            <p className="text-sm text-foreground whitespace-pre-wrap">{plan.summary}</p>
+          </div>
         </TabsContent>
+
+        {['A', 'B', 'all'].map((tabValue) => (
+          <TabsContent key={tabValue} value={tabValue} className="mt-4 space-y-4">
+            {/* Table */}
+            <div className="rounded-lg border border-border overflow-hidden">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-muted/50 border-b border-border">
+                    <th className="py-2 px-4 text-left text-sm font-semibold text-foreground w-28">Day</th>
+                    <th className="py-2 px-4 text-left text-sm font-semibold text-foreground">Schoolbound</th>
+                    <th className="py-2 px-4 text-left text-sm font-semibold text-foreground">Homebound</th>
+                    <th className="py-2 px-2 w-12"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredDayPlans.map(renderDayRow)}
+                </tbody>
+              </table>
+            </div>
+
+            {filteredDayPlans.length === 0 && (
+              <div className="text-center py-12 border border-border rounded-lg">
+                <Users className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                <p className="text-muted-foreground text-sm">No day plans match your filters</p>
+              </div>
+            )}
+          </TabsContent>
+        ))}
       </Tabs>
 
       <DayPlanEditDialog
