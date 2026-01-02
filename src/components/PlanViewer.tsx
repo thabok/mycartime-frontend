@@ -1,8 +1,8 @@
 import { useState, useMemo, useCallback } from 'react';
 import { DrivingPlan, DayPlan, Party, Member } from '@/types/carpool';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Pencil, Users } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Pencil, Users, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DayPlanEditDialog } from './DayPlanEditDialog';
 
@@ -47,11 +47,11 @@ export function PlanViewer({ plan, onPlanChange, members }: PlanViewerProps) {
     return map;
   }, [members]);
 
-  // Format initials as "FirstName (Initials)"
+  // Format initials as "FirstName (Initials)" with non-breaking space
   const formatPerson = useCallback((initials: string) => {
     const member = membersByInitials.get(initials.toLowerCase());
     if (member) {
-      return `${member.firstName} (${member.initials})`;
+      return `${member.firstName}\u00A0(${member.initials})`;
     }
     return initials;
   }, [membersByInitials]);
@@ -142,7 +142,7 @@ export function PlanViewer({ plan, onPlanChange, members }: PlanViewerProps) {
     onPlanChange(updatedPlan);
   };
 
-  const renderPartyLine = (party: Party, filterQuery: string) => {
+  const renderPartyLine = (party: Party, filterQuery: string, isLast: boolean) => {
     const query = filterQuery.trim().toLowerCase();
     const driverMember = membersByInitials.get(party.driver.toLowerCase());
     const isDriverHighlighted = query && (
@@ -155,12 +155,15 @@ export function PlanViewer({ plan, onPlanChange, members }: PlanViewerProps) {
     const driverPrefix = isDriverHighlighted ? '*' : '';
     
     const passengersText = party.passengers.length > 0 
-      ? ' - ' + party.passengers.map(p => formatPerson(p)).join(' - ')
+      ? ' · ' + party.passengers.map(p => formatPerson(p)).join(' · ')
       : '';
 
     return (
-      <li key={`${party.driver}-${party.time}`} className="text-sm leading-relaxed">
-        <span className="text-muted-foreground">[{formatTime(party.time)}]</span>
+      <div key={`${party.driver}-${party.time}`} className={cn(
+        "text-sm leading-relaxed py-1",
+        !isLast && "border-b border-border/30"
+      )}>
+        <span className="text-muted-foreground font-mono">[{formatTime(party.time)}]</span>
         {' '}
         <span className={cn("font-semibold", isDriverHighlighted && "text-primary")}>
           {driverPrefix}{formatPerson(party.driver)}
@@ -168,7 +171,7 @@ export function PlanViewer({ plan, onPlanChange, members }: PlanViewerProps) {
         {passengersText && (
           <span className="text-muted-foreground">{passengersText}</span>
         )}
-      </li>
+      </div>
     );
   };
 
@@ -193,18 +196,18 @@ export function PlanViewer({ plan, onPlanChange, members }: PlanViewerProps) {
         </td>
         <td className="py-3 px-4 align-top">
           {schoolboundParties.length > 0 ? (
-            <ul className="list-disc list-inside space-y-0.5">
-              {schoolboundParties.map(party => renderPartyLine(party, personFilter))}
-            </ul>
+            <div>
+              {schoolboundParties.map((party, idx) => renderPartyLine(party, personFilter, idx === schoolboundParties.length - 1))}
+            </div>
           ) : (
             <span className="text-muted-foreground text-sm">—</span>
           )}
         </td>
         <td className="py-3 px-4 align-top">
           {homeboundParties.length > 0 ? (
-            <ul className="list-disc list-inside space-y-0.5">
-              {homeboundParties.map(party => renderPartyLine(party, personFilter))}
-            </ul>
+            <div>
+              {homeboundParties.map((party, idx) => renderPartyLine(party, personFilter, idx === homeboundParties.length - 1))}
+            </div>
           ) : (
             <span className="text-muted-foreground text-sm">—</span>
           )}
@@ -222,56 +225,74 @@ export function PlanViewer({ plan, onPlanChange, members }: PlanViewerProps) {
     );
   };
 
+  const [viewTab, setViewTab] = useState<'schedule' | 'summary'>('schedule');
+
   return (
     <div className="space-y-4 animate-fade-in">
-      {/* Summary */}
-      <div className="p-3 rounded-lg bg-muted/50 border border-border/50">
-        <p className="text-sm text-foreground">{plan.summary}</p>
-      </div>
+      <Tabs value={viewTab} onValueChange={(v) => setViewTab(v as typeof viewTab)}>
+        <TabsList className="h-9">
+          <TabsTrigger value="schedule" className="text-sm px-4 gap-2">
+            <Users className="h-4 w-4" />
+            Schedule
+          </TabsTrigger>
+          <TabsTrigger value="summary" className="text-sm px-4 gap-2">
+            <FileText className="h-4 w-4" />
+            Summary
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Filters Row */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <Tabs value={weekFilter} onValueChange={(v) => setWeekFilter(v as typeof weekFilter)}>
-          <TabsList className="h-9">
-            <TabsTrigger value="A" className="text-sm px-4">Week A</TabsTrigger>
-            <TabsTrigger value="B" className="text-sm px-4">Week B</TabsTrigger>
-            <TabsTrigger value="all" className="text-sm px-4">Complete Plan</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <TabsContent value="summary" className="mt-4">
+          <div className="p-4 rounded-lg bg-muted/50 border border-border/50">
+            <p className="text-sm text-foreground whitespace-pre-wrap">{plan.summary}</p>
+          </div>
+        </TabsContent>
 
-        <div className="relative w-full sm:w-56">
-          <Input
-            placeholder="filter by name or initials"
-            value={personFilter}
-            onChange={(e) => setPersonFilter(e.target.value)}
-            className="h-9 text-sm pl-3 pr-3"
-          />
-        </div>
-      </div>
+        <TabsContent value="schedule" className="mt-4 space-y-4">
+          {/* Filters Row */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <Tabs value={weekFilter} onValueChange={(v) => setWeekFilter(v as typeof weekFilter)}>
+              <TabsList className="h-9">
+                <TabsTrigger value="A" className="text-sm px-4">Week A</TabsTrigger>
+                <TabsTrigger value="B" className="text-sm px-4">Week B</TabsTrigger>
+                <TabsTrigger value="all" className="text-sm px-4">Complete Plan</TabsTrigger>
+              </TabsList>
+            </Tabs>
 
-      {/* Table */}
-      <div className="rounded-lg border border-border overflow-hidden">
-        <table className="w-full">
-          <thead>
-            <tr className="bg-muted/50 border-b border-border">
-              <th className="py-2.5 px-4 text-left text-sm font-semibold text-foreground w-28">Day</th>
-              <th className="py-2.5 px-4 text-left text-sm font-semibold text-foreground">Schoolbound</th>
-              <th className="py-2.5 px-4 text-left text-sm font-semibold text-foreground">Homebound</th>
-              <th className="py-2.5 px-2 w-12"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredDayPlans.map(renderDayRow)}
-          </tbody>
-        </table>
-      </div>
+            <div className="relative w-full sm:w-56">
+              <Input
+                placeholder="filter by name or initials"
+                value={personFilter}
+                onChange={(e) => setPersonFilter(e.target.value)}
+                className="h-9 text-sm pl-3 pr-3"
+              />
+            </div>
+          </div>
 
-      {filteredDayPlans.length === 0 && (
-        <div className="text-center py-12 border border-border rounded-lg">
-          <Users className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-          <p className="text-muted-foreground text-sm">No day plans match your filters</p>
-        </div>
-      )}
+          {/* Table */}
+          <div className="rounded-lg border border-border overflow-hidden">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-muted/50 border-b border-border">
+                  <th className="py-2.5 px-4 text-left text-sm font-semibold text-foreground w-28">Day</th>
+                  <th className="py-2.5 px-4 text-left text-sm font-semibold text-foreground">Schoolbound</th>
+                  <th className="py-2.5 px-4 text-left text-sm font-semibold text-foreground">Homebound</th>
+                  <th className="py-2.5 px-2 w-12"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredDayPlans.map(renderDayRow)}
+              </tbody>
+            </table>
+          </div>
+
+          {filteredDayPlans.length === 0 && (
+            <div className="text-center py-12 border border-border rounded-lg">
+              <Users className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+              <p className="text-muted-foreground text-sm">No day plans match your filters</p>
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
 
       <DayPlanEditDialog
         open={editDialogOpen}
