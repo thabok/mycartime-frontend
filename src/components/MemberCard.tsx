@@ -21,14 +21,15 @@ export function MemberCard({ member, onEdit, onEditCustom, onDelete }: MemberCar
     >
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-semibold text-lg">
+          <div className="flex items-start gap-3">
+            <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-semibold text-lg shrink-0">
               {member.initials}
             </div>
-            <div>
-              <h3 className="font-medium text-foreground">
-                {member.firstName} {member.lastName}
-              </h3>
+            <div className="min-w-0 pt-0.5">
+              <div className="font-medium text-foreground leading-tight">
+                <div className="truncate">{member.firstName}</div>
+                <div className="truncate">{member.lastName}</div>
+              </div>
               <div className="flex items-center gap-2 mt-1">
                 <div className="flex items-center gap-1 text-sm text-muted-foreground">
                   <Car className="h-3.5 w-3.5" />
