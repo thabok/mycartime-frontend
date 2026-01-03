@@ -206,30 +206,30 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
                       </div>
                       
                       {!day.ignoreCompletely && (
-                        <div className="space-y-1 text-[10px]">
-                          <label className="flex items-center gap-1">
-                            <Checkbox checked={day.skipMorning} onCheckedChange={(checked) => updateCustomDay(dayKey, 'skipMorning', !!checked)} className="h-3 w-3" />
+                        <div className="space-y-1.5 text-xs">
+                          <label className="flex items-center gap-1.5 cursor-pointer">
+                            <Checkbox checked={day.skipMorning} onCheckedChange={(checked) => updateCustomDay(dayKey, 'skipMorning', !!checked)} className="h-3.5 w-3.5" />
                             Skip AM
                           </label>
-                          <label className="flex items-center gap-1">
-                            <Checkbox checked={day.skipAfternoon} onCheckedChange={(checked) => updateCustomDay(dayKey, 'skipAfternoon', !!checked)} className="h-3 w-3" />
+                          <label className="flex items-center gap-1.5 cursor-pointer">
+                            <Checkbox checked={day.skipAfternoon} onCheckedChange={(checked) => updateCustomDay(dayKey, 'skipAfternoon', !!checked)} className="h-3.5 w-3.5" />
                             Skip PM
                           </label>
-                          <label className="flex items-center gap-1">
-                            <Checkbox checked={day.needsCar} onCheckedChange={(checked) => updateCustomDay(dayKey, 'needsCar', !!checked)} className="h-3 w-3" />
+                          <label className="flex items-center gap-1.5 cursor-pointer">
+                            <Checkbox checked={day.needsCar} onCheckedChange={(checked) => updateCustomDay(dayKey, 'needsCar', !!checked)} className="h-3.5 w-3.5" />
                             Needs car
                           </label>
-                          <label className="flex items-center gap-1">
-                            <Checkbox checked={day.drivingSkip} onCheckedChange={(checked) => updateCustomDay(dayKey, 'drivingSkip', !!checked)} className="h-3 w-3" />
+                          <label className="flex items-center gap-1.5 cursor-pointer">
+                            <Checkbox checked={day.drivingSkip} onCheckedChange={(checked) => updateCustomDay(dayKey, 'drivingSkip', !!checked)} className="h-3.5 w-3.5" />
                             Skip driving
                           </label>
-                          <label className="flex items-center gap-1">
-                            <Checkbox checked={day.noWaitingAfternoon} onCheckedChange={(checked) => updateCustomDay(dayKey, 'noWaitingAfternoon', !!checked)} className="h-3 w-3" />
+                          <label className="flex items-center gap-1.5 cursor-pointer">
+                            <Checkbox checked={day.noWaitingAfternoon} onCheckedChange={(checked) => updateCustomDay(dayKey, 'noWaitingAfternoon', !!checked)} className="h-3.5 w-3.5" />
                             No wait PM
                           </label>
-                          <div className="grid grid-cols-2 gap-1 mt-1">
-                            <Input type="time" value={day.customStart} onChange={(e) => updateCustomDay(dayKey, 'customStart', e.target.value)} className="h-6 text-[10px] px-1" />
-                            <Input type="time" value={day.customEnd} onChange={(e) => updateCustomDay(dayKey, 'customEnd', e.target.value)} className="h-6 text-[10px] px-1" />
+                          <div className="flex gap-1 mt-2 text-[10px] text-muted-foreground">
+                            <Input type="time" value={day.customStart} onChange={(e) => updateCustomDay(dayKey, 'customStart', e.target.value)} className="h-5 text-[10px] px-0.5 w-full" placeholder="Start" />
+                            <Input type="time" value={day.customEnd} onChange={(e) => updateCustomDay(dayKey, 'customEnd', e.target.value)} className="h-5 text-[10px] px-0.5 w-full" placeholder="End" />
                           </div>
                         </div>
                       )}
@@ -265,30 +265,30 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
                       </div>
                       
                       {!day.ignoreCompletely && (
-                        <div className="space-y-1 text-[10px]">
-                          <label className="flex items-center gap-1">
-                            <Checkbox checked={day.skipMorning} onCheckedChange={(checked) => updateCustomDay(dayKey, 'skipMorning', !!checked)} className="h-3 w-3" />
+                        <div className="space-y-1.5 text-xs">
+                          <label className="flex items-center gap-1.5 cursor-pointer">
+                            <Checkbox checked={day.skipMorning} onCheckedChange={(checked) => updateCustomDay(dayKey, 'skipMorning', !!checked)} className="h-3.5 w-3.5" />
                             Skip AM
                           </label>
-                          <label className="flex items-center gap-1">
-                            <Checkbox checked={day.skipAfternoon} onCheckedChange={(checked) => updateCustomDay(dayKey, 'skipAfternoon', !!checked)} className="h-3 w-3" />
+                          <label className="flex items-center gap-1.5 cursor-pointer">
+                            <Checkbox checked={day.skipAfternoon} onCheckedChange={(checked) => updateCustomDay(dayKey, 'skipAfternoon', !!checked)} className="h-3.5 w-3.5" />
                             Skip PM
                           </label>
-                          <label className="flex items-center gap-1">
-                            <Checkbox checked={day.needsCar} onCheckedChange={(checked) => updateCustomDay(dayKey, 'needsCar', !!checked)} className="h-3 w-3" />
+                          <label className="flex items-center gap-1.5 cursor-pointer">
+                            <Checkbox checked={day.needsCar} onCheckedChange={(checked) => updateCustomDay(dayKey, 'needsCar', !!checked)} className="h-3.5 w-3.5" />
                             Needs car
                           </label>
-                          <label className="flex items-center gap-1">
-                            <Checkbox checked={day.drivingSkip} onCheckedChange={(checked) => updateCustomDay(dayKey, 'drivingSkip', !!checked)} className="h-3 w-3" />
+                          <label className="flex items-center gap-1.5 cursor-pointer">
+                            <Checkbox checked={day.drivingSkip} onCheckedChange={(checked) => updateCustomDay(dayKey, 'drivingSkip', !!checked)} className="h-3.5 w-3.5" />
                             Skip driving
                           </label>
-                          <label className="flex items-center gap-1">
-                            <Checkbox checked={day.noWaitingAfternoon} onCheckedChange={(checked) => updateCustomDay(dayKey, 'noWaitingAfternoon', !!checked)} className="h-3 w-3" />
+                          <label className="flex items-center gap-1.5 cursor-pointer">
+                            <Checkbox checked={day.noWaitingAfternoon} onCheckedChange={(checked) => updateCustomDay(dayKey, 'noWaitingAfternoon', !!checked)} className="h-3.5 w-3.5" />
                             No wait PM
                           </label>
-                          <div className="grid grid-cols-2 gap-1 mt-1">
-                            <Input type="time" value={day.customStart} onChange={(e) => updateCustomDay(dayKey, 'customStart', e.target.value)} className="h-6 text-[10px] px-1" />
-                            <Input type="time" value={day.customEnd} onChange={(e) => updateCustomDay(dayKey, 'customEnd', e.target.value)} className="h-6 text-[10px] px-1" />
+                          <div className="flex gap-1 mt-2 text-[10px] text-muted-foreground">
+                            <Input type="time" value={day.customStart} onChange={(e) => updateCustomDay(dayKey, 'customStart', e.target.value)} className="h-5 text-[10px] px-0.5 w-full" placeholder="Start" />
+                            <Input type="time" value={day.customEnd} onChange={(e) => updateCustomDay(dayKey, 'customEnd', e.target.value)} className="h-5 text-[10px] px-0.5 w-full" placeholder="End" />
                           </div>
                         </div>
                       )}
