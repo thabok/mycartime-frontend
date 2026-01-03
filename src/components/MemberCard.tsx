@@ -22,7 +22,7 @@ export function MemberCard({ member, onEdit, onEditCustom, onDelete }: MemberCar
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-semibold text-lg shrink-0">
+            <div className="h-14 w-14 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-semibold text-xl shrink-0">
               {member.initials}
             </div>
             <div className="min-w-0">
