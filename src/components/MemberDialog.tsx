@@ -228,8 +228,8 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
                             No wait PM
                           </label>
                           <div className="flex gap-1 mt-2 text-[10px] text-muted-foreground">
-                            <Input type="time" value={day.customStart} onChange={(e) => updateCustomDay(dayKey, 'customStart', e.target.value)} className="h-5 text-[10px] px-0.5 w-full" placeholder="Start" />
-                            <Input type="time" value={day.customEnd} onChange={(e) => updateCustomDay(dayKey, 'customEnd', e.target.value)} className="h-5 text-[10px] px-0.5 w-full" placeholder="End" />
+                            <Input type="time" value={day.customStart} onChange={(e) => updateCustomDay(dayKey, 'customStart', e.target.value)} className="h-5 text-[10px] px-0.5 w-full rounded" placeholder="Start" />
+                            <Input type="time" value={day.customEnd} onChange={(e) => updateCustomDay(dayKey, 'customEnd', e.target.value)} className="h-5 text-[10px] px-0.5 w-full rounded" placeholder="End" />
                           </div>
                         </div>
                       )}
@@ -287,8 +287,8 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
                             No wait PM
                           </label>
                           <div className="flex gap-1 mt-2 text-[10px] text-muted-foreground">
-                            <Input type="time" value={day.customStart} onChange={(e) => updateCustomDay(dayKey, 'customStart', e.target.value)} className="h-5 text-[10px] px-0.5 w-full" placeholder="Start" />
-                            <Input type="time" value={day.customEnd} onChange={(e) => updateCustomDay(dayKey, 'customEnd', e.target.value)} className="h-5 text-[10px] px-0.5 w-full" placeholder="End" />
+                            <Input type="time" value={day.customStart} onChange={(e) => updateCustomDay(dayKey, 'customStart', e.target.value)} className="h-5 text-[10px] px-0.5 w-full rounded" placeholder="Start" />
+                            <Input type="time" value={day.customEnd} onChange={(e) => updateCustomDay(dayKey, 'customEnd', e.target.value)} className="h-5 text-[10px] px-0.5 w-full rounded" placeholder="End" />
                           </div>
                         </div>
                       )}
