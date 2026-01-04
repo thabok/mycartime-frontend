@@ -123,24 +123,39 @@ export function MembersPanel({ members, onMembersChange }: MembersPanelProps) {
         const imported = JSON.parse(text) as Member[];
         if (!Array.isArray(imported)) throw new Error('Invalid format');
         
+        // Normalize time strings to HH:MM format (add leading zero if needed)
+        const normalizeTime = (time: string): string => {
+          if (!time) return '';
+          const match = time.match(/^(\d{1,2}):(\d{2})$/);
+          if (!match) return time;
+          return `${match[1].padStart(2, '0')}:${match[2]}`;
+        };
+        
         // Clean up customDays: remove entries that are equal to the default empty value
         const cleanedMembers = imported.map(member => {
           if (!member.customDays) return member;
           
           const cleanedCustomDays: Record<string, CustomDay> = {};
           for (const [dayKey, day] of Object.entries(member.customDays)) {
+            // Normalize time strings
+            const normalizedDay = {
+              ...day,
+              customStart: normalizeTime(day.customStart),
+              customEnd: normalizeTime(day.customEnd)
+            };
+            
             const isDefault = 
-              !day.ignoreCompletely &&
-              !day.noWaitingAfternoon &&
-              !day.needsCar &&
-              !day.drivingSkip &&
-              !day.skipMorning &&
-              !day.skipAfternoon &&
-              !day.customStart &&
-              !day.customEnd;
+              !normalizedDay.ignoreCompletely &&
+              !normalizedDay.noWaitingAfternoon &&
+              !normalizedDay.needsCar &&
+              !normalizedDay.drivingSkip &&
+              !normalizedDay.skipMorning &&
+              !normalizedDay.skipAfternoon &&
+              !normalizedDay.customStart &&
+              !normalizedDay.customEnd;
             
             if (!isDefault) {
-              cleanedCustomDays[dayKey] = day;
+              cleanedCustomDays[dayKey] = normalizedDay;
             }
           }
           
