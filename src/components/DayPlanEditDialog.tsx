@@ -179,6 +179,10 @@ export function DayPlanEditDialog({
         if (party.schoolbound !== selectedPassenger.party.schoolbound) {
           return false;
         }
+        // Solo drivers must not receive any passengers
+        if (party.isLonelyDriver) {
+          return false;
+        }
         // Match driver or any passenger by name or initials
         const matchesDriver = matchesQuery(party.driver, query);
         const matchesPassenger = party.passengers.some(p => matchesQuery(p, query));
@@ -261,7 +265,7 @@ export function DayPlanEditDialog({
     .sort((a, b) => a.time - b.time);
 
   const renderPartyPreview = (party: Party, isLast: boolean) => {
-    const driverPrefix = party.isDesignatedDriver ? '*' : '';
+    const driverPrefix = party.isLonelyDriver ? '**' : (party.isDesignatedDriver ? '*' : '');
     
     const passengersFormatted = party.passengers.map(p => {
       const member = membersByInitials.get(p.toLowerCase());

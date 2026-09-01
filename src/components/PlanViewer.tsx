@@ -110,12 +110,20 @@ export function PlanViewer({ plan, onPlanChange, members, referenceDate }: PlanV
 
     const dayCombo = selectedMember.dayPlan.dayOfWeekABCombo;
     const dayLabel = `${DAY_NAMES[dayCombo.dayOfWeek]}, Week ${dayCombo.isWeekA ? 'A' : 'B'}`;
-    
+
     const timeInfo = selectedMember.party.schoolbound
       ? selectedMember.dayPlan.schoolboundTimeInfoByInitials?.[selectedMember.initials]
       : selectedMember.dayPlan.homeboundTimeInfoByInitials?.[selectedMember.initials];
 
     const scheduleUrl = getScheduleUrl(selectedMember.initials);
+
+    // Custom day preferences (keys are 0-based day indices, uniqueNumber is 1-based)
+    const customDay = member.customDays?.[(dayCombo.uniqueNumber - 1).toString()];
+    const prefLabels: string[] = [];
+    if (customDay?.needsCar) prefLabels.push('designated driver');
+    if (selectedMember.party.schoolbound ? customDay?.skipMorning : customDay?.skipAfternoon) prefLabels.push('solo driver');
+    if (customDay?.drivingSkip) prefLabels.push('no car');
+    if (customDay?.noWaitingAfternoon) prefLabels.push('no wait pm');
 
     // Build party display text
     const passengerDisplay = (selectedMember.party.passengers.length > 0 ? ' · ' : '') + selectedMember.party.passengers.map(initials => formatPerson(initials)).join(' · ');
@@ -128,6 +136,11 @@ export function PlanViewer({ plan, onPlanChange, members, referenceDate }: PlanV
             <p className="text-lg font-semibold">
               {member.firstName} {member.lastName}
               <span className="text-muted-foreground ml-2">({member.initials})</span>
+              {prefLabels.length > 0 && (
+                <span className="text-sm text-muted-foreground font-normal ml-2">
+                  ({prefLabels.join(', ')})
+                </span>
+              )}
             </p>
           </div>
           <button
@@ -325,7 +338,7 @@ export function PlanViewer({ plan, onPlanChange, members, referenceDate }: PlanV
         driverMember.lastName.toLowerCase().includes(query)
       ))
     );
-    const driverPrefix = party.isDesignatedDriver ? '*' : '';
+    const driverPrefix = party.isLonelyDriver ? '**' : (party.isDesignatedDriver ? '*' : '');
     const isDriverSelected = selectedMember?.initials === party.driver && selectedMember?.party === party;
     
     const passengersFormatted = party.passengers.map(p => {

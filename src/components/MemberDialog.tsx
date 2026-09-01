@@ -336,9 +336,8 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
               variant="outline"
               onClick={() => setCustomDays({})}
               disabled={Object.keys(customDays).length === 0}
-              className="text-xs"
             >
-              Reset All Custom Days
+              Reset All
             </Button>
           ) : (
             <div />

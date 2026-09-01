@@ -34,6 +34,7 @@ import {
   CalendarDays
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { parseImportedMembers } from '@/lib/memberImport';
 
 const WEEKDAY_LABELS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
@@ -225,36 +226,7 @@ const sortMembers = (membersList: Member[]) => {
       if (!file) return;
       try {
         const text = await file.text();
-        const imported = JSON.parse(text) as Member[];
-        if (!Array.isArray(imported)) throw new Error('Invalid format');
-        
-        // Clean up customDays: remove entries that are equal to the default empty value
-        const cleanedMembers = imported.map(member => {
-          if (!member.customDays) return member;
-          
-          const cleanedCustomDays: Record<string, CustomDay> = {};
-          for (const [dayKey, day] of Object.entries(member.customDays)) {
-            const isDefault = 
-              !day.ignoreCompletely &&
-              !day.noWaitingAfternoon &&
-              !day.needsCar &&
-              !day.drivingSkip &&
-              !day.skipMorning &&
-              !day.skipAfternoon &&
-              !day.customStart &&
-              !day.customEnd;
-            
-            if (!isDefault) {
-              cleanedCustomDays[dayKey] = day;
-            }
-          }
-          
-          return {
-            ...member,
-            customDays: Object.keys(cleanedCustomDays).length > 0 ? cleanedCustomDays : undefined
-          };
-        });
-        
+        const cleanedMembers = parseImportedMembers(text);
         onMembersChange(sortMembers(cleanedMembers));
         toast({ title: 'Imported', description: `${cleanedMembers.length} members imported.` });
       } catch (err) {

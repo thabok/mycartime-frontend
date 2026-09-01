@@ -31,6 +31,7 @@ export interface Party {
   passengers: string[];
   isDesignatedDriver: boolean;
   drivesDespiteCustomPrefs: boolean;
+  isLonelyDriver: boolean;
   schoolbound: boolean;
   poolName?: string;
   creationPhase?: number;
