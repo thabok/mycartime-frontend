@@ -32,6 +32,14 @@ export interface Party {
   isDesignatedDriver: boolean;
   drivesDespiteCustomPrefs: boolean;
   schoolbound: boolean;
+  poolName?: string;
+  creationPhase?: number;
+}
+
+export interface TimeInfo {
+  timetableTime: number | null;
+  customPrefTime: number | null;
+  effectiveTime: number;
 }
 
 export interface DayPlan {
@@ -39,18 +47,15 @@ export interface DayPlan {
   parties: Party[];
   schoolboundTimesByInitials: Record<string, number>;
   homeboundTimesByInitials: Record<string, number>;
+  schoolboundTimeInfoByInitials?: Record<string, TimeInfo>;
+  homeboundTimeInfoByInitials?: Record<string, TimeInfo>;
 }
 
 export interface DrivingPlan {
   summary: string;
   dayPlans: Record<string, DayPlan>;
-}
-
-export interface DrivingPlanRequest {
-  persons: Member[];
-  scheduleReferenceStartDate: number;
-  username: string;
-  hash: string;
+  memberIdMap?: Record<string, string>;
+  scheduleUrlTemplate?: string;
 }
 
 export type ViewMode = 'members' | 'plan';

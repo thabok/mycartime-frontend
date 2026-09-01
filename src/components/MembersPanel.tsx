@@ -6,6 +6,13 @@ import { MemberDialog } from './MemberDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -22,23 +29,108 @@ import {
   List, 
   Download, 
   Upload,
-  Users
+  ListChecks,
+  Users,
+  CalendarDays
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+
+const WEEKDAY_LABELS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+
+const isExplicitCustomDay = (day: CustomDay) => {
+  return !!(
+    day.ignoreCompletely ||
+    day.noWaitingAfternoon ||
+    day.needsCar ||
+    day.drivingSkip ||
+    day.skipMorning ||
+    day.skipAfternoon ||
+    day.customStart ||
+    day.customEnd
+  );
+};
+
+const summarizeCustomDay = (day: CustomDay) => {
+  if (day.ignoreCompletely) return 'Skip';
+
+  const labels: string[] = [];
+  const hasSoloSegment = day.skipMorning || day.skipAfternoon;
+
+  if (day.needsCar && !hasSoloSegment) labels.push('Needs car');
+  if (day.drivingSkip) labels.push('No car');
+  if (day.skipMorning) labels.push('Solo AM');
+  if (day.skipAfternoon) labels.push('Solo PM');
+  if (day.noWaitingAfternoon) labels.push('No wait PM');
+  if (day.customStart) labels.push(`Start ${day.customStart}`);
+  if (day.customEnd) labels.push(`End ${day.customEnd}`);
+  return labels.join(', ');
+};
+
+const buildMemberCustomPrefLines = (member: Member) => {
+  if (!member.customDays) return [];
+
+  const byWeekday = new Map<number, { a?: string; b?: string }>();
+
+  for (const [dayKey, day] of Object.entries(member.customDays)) {
+    if (!isExplicitCustomDay(day)) continue;
+
+    const numericKey = Number(dayKey);
+    if (!Number.isInteger(numericKey) || numericKey < 0 || numericKey > 9) continue;
+
+    const weekdayIndex = numericKey % 5;
+    const week = numericKey < 5 ? 'a' : 'b';
+    const summary = summarizeCustomDay(day);
+    if (!summary) continue;
+
+    const current = byWeekday.get(weekdayIndex) ?? {};
+    current[week] = summary;
+    byWeekday.set(weekdayIndex, current);
+  }
+
+  const lines: string[] = [];
+
+  for (let weekdayIndex = 0; weekdayIndex < 5; weekdayIndex += 1) {
+    const entry = byWeekday.get(weekdayIndex);
+    if (!entry) continue;
+
+    const dayLabel = WEEKDAY_LABELS[weekdayIndex];
+    if (entry.a && entry.b && entry.a === entry.b) {
+      lines.push(`${dayLabel} (A+B): ${entry.a}`);
+      continue;
+    }
+
+    if (entry.a) lines.push(`${dayLabel} (A): ${entry.a}`);
+    if (entry.b) lines.push(`${dayLabel} (B): ${entry.b}`);
+  }
+
+  return lines;
+};
 
 interface MembersPanelProps {
   members: Member[];
   onMembersChange: (members: Member[]) => void;
+  hasPlan: boolean;
+  onNavigateToPlan: () => void;
 }
 
-export function MembersPanel({ members, onMembersChange }: MembersPanelProps) {
+export function MembersPanel({ members, onMembersChange, hasPlan, onNavigateToPlan }: MembersPanelProps) {
   const [viewMode, setViewMode] = useState<MemberViewMode>('card');
   const [searchQuery, setSearchQuery] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [customPrefsOpen, setCustomPrefsOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [deletingMember, setDeletingMember] = useState<Member | null>(null);
   const [dialogInitialTab, setDialogInitialTab] = useState<'basic' | 'custom'>('basic');
   const { toast } = useToast();
+
+// Utility function to sort members alphabetically
+const sortMembers = (membersList: Member[]) => {
+    return [...membersList].sort((a, b) => {
+        const lastNameCompare = a.lastName.localeCompare(b.lastName);
+        if (lastNameCompare !== 0) return lastNameCompare;
+        return a.firstName.localeCompare(b.firstName);
+    });
+};
 
   const filteredMembers = useMemo(() => {
     if (!searchQuery.trim()) return members;
@@ -49,6 +141,18 @@ export function MembersPanel({ members, onMembersChange }: MembersPanelProps) {
       m.initials.toLowerCase().includes(q)
     );
   }, [members, searchQuery]);
+
+  const membersWithCustomPrefs = useMemo(() => {
+    return members
+      .map((member) => {
+        const lines = buildMemberCustomPrefLines(member);
+        return {
+          member,
+          lines,
+        };
+      })
+      .filter((item) => item.lines.length > 0);
+  }, [members]);
 
   const handleAddMember = () => {
     setEditingMember(null);
@@ -69,9 +173,10 @@ export function MembersPanel({ members, onMembersChange }: MembersPanelProps) {
 
   const handleSaveMember = (member: Member) => {
     if (editingMember) {
-      onMembersChange(members.map(m => 
+      const updatedMembers = members.map(m => 
         m.initials === editingMember.initials ? member : m
-      ));
+      );
+      onMembersChange(sortMembers(updatedMembers));
       toast({ title: 'Member updated', description: `${member.firstName} ${member.lastName} has been updated.` });
     } else {
       if (members.some(m => m.initials === member.initials)) {
@@ -82,7 +187,7 @@ export function MembersPanel({ members, onMembersChange }: MembersPanelProps) {
         });
         return;
       }
-      onMembersChange([...members, member]);
+      onMembersChange(sortMembers([...members, member]));
       toast({ title: 'Member added', description: `${member.firstName} ${member.lastName} has been added.` });
     }
   };
@@ -123,39 +228,24 @@ export function MembersPanel({ members, onMembersChange }: MembersPanelProps) {
         const imported = JSON.parse(text) as Member[];
         if (!Array.isArray(imported)) throw new Error('Invalid format');
         
-        // Normalize time strings to HH:MM format (add leading zero if needed)
-        const normalizeTime = (time: string): string => {
-          if (!time) return '';
-          const match = time.match(/^(\d{1,2}):(\d{2})$/);
-          if (!match) return time;
-          return `${match[1].padStart(2, '0')}:${match[2]}`;
-        };
-        
         // Clean up customDays: remove entries that are equal to the default empty value
         const cleanedMembers = imported.map(member => {
           if (!member.customDays) return member;
           
           const cleanedCustomDays: Record<string, CustomDay> = {};
           for (const [dayKey, day] of Object.entries(member.customDays)) {
-            // Normalize time strings
-            const normalizedDay = {
-              ...day,
-              customStart: normalizeTime(day.customStart),
-              customEnd: normalizeTime(day.customEnd)
-            };
-            
             const isDefault = 
-              !normalizedDay.ignoreCompletely &&
-              !normalizedDay.noWaitingAfternoon &&
-              !normalizedDay.needsCar &&
-              !normalizedDay.drivingSkip &&
-              !normalizedDay.skipMorning &&
-              !normalizedDay.skipAfternoon &&
-              !normalizedDay.customStart &&
-              !normalizedDay.customEnd;
+              !day.ignoreCompletely &&
+              !day.noWaitingAfternoon &&
+              !day.needsCar &&
+              !day.drivingSkip &&
+              !day.skipMorning &&
+              !day.skipAfternoon &&
+              !day.customStart &&
+              !day.customEnd;
             
             if (!isDefault) {
-              cleanedCustomDays[dayKey] = normalizedDay;
+              cleanedCustomDays[dayKey] = day;
             }
           }
           
@@ -165,7 +255,7 @@ export function MembersPanel({ members, onMembersChange }: MembersPanelProps) {
           };
         });
         
-        onMembersChange(cleanedMembers);
+        onMembersChange(sortMembers(cleanedMembers));
         toast({ title: 'Imported', description: `${cleanedMembers.length} members imported.` });
       } catch (err) {
         toast({ 
@@ -211,13 +301,15 @@ export function MembersPanel({ members, onMembersChange }: MembersPanelProps) {
             </Button>
           </div>
           
-          <Button variant="outline" size="sm" onClick={handleImport}>
-            <Upload className="h-4 w-4 mr-2" />
-            Import
+          <Button variant="outline" size="icon" onClick={handleImport} aria-label="Import" title="Import">
+            <Upload className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="sm" onClick={handleExport} disabled={members.length === 0}>
-            <Download className="h-4 w-4 mr-2" />
-            Export
+          <Button variant="outline" size="icon" onClick={handleExport} disabled={members.length === 0} aria-label="Export" title="Export">
+            <Download className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setCustomPrefsOpen(true)}>
+            <ListChecks className="h-4 w-4 mr-2" />
+            Custom Prefs
           </Button>
           <Button onClick={handleAddMember}>
             <Plus className="h-4 w-4 mr-2" />
@@ -271,7 +363,15 @@ export function MembersPanel({ members, onMembersChange }: MembersPanelProps) {
           ))}
         </div>
       )}
-
+      {/* Navigation to Plan */}
+      {filteredMembers.length > 0 && (
+        <div className="flex justify-center pt-4 mt-4 border-t border-border">
+          <Button onClick={onNavigateToPlan} size="lg" variant="gradient">
+            <CalendarDays className="h-4 w-4 mr-2" />
+            {hasPlan ? 'Back to Driving Plan' : 'Generate or Load Driving Plan'}
+          </Button>
+        </div>
+      )}
       <MemberDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
@@ -279,6 +379,40 @@ export function MembersPanel({ members, onMembersChange }: MembersPanelProps) {
         onSave={handleSaveMember}
         initialTab={dialogInitialTab}
       />
+
+      <Dialog open={customPrefsOpen} onOpenChange={setCustomPrefsOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Custom Preferences Overview</DialogTitle>
+            <DialogDescription>
+              Overview of all members with explicit custom preferences.
+            </DialogDescription>
+          </DialogHeader>
+
+          {membersWithCustomPrefs.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No explicit custom preferences found.
+            </p>
+          ) : (
+            <div className="max-h-[60vh] overflow-y-auto pr-1 space-y-1.5">
+              {membersWithCustomPrefs.map(({ member, lines }) => (
+                <div key={member.initials} className="rounded-lg border border-border p-2">
+                  <div className="grid grid-cols-[minmax(140px,220px)_1fr] gap-x-12 items-start">
+                    <p className="font-medium text-sm leading-6">{member.firstName} {member.lastName}</p>
+                    <div className="space-y-0.2">
+                    {lines.map((line) => (
+                      <p key={`${member.initials}-${line}`} className="text-sm text-muted-foreground">
+                        {line}
+                      </p>
+                    ))}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={!!deletingMember} onOpenChange={() => setDeletingMember(null)}>
         <AlertDialogContent>

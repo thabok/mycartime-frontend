@@ -12,36 +12,57 @@ import {
   Loader2, 
   Sparkles, 
   Upload, 
-  Download, 
-  FileText,
-  Trash2,
   Lock
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useSessionStorage } from '@/hooks/useSessionStorage';
 
 interface PlanControlsProps {
   members: Member[];
   plan: DrivingPlan | null;
   onPlanChange: (plan: DrivingPlan | null) => void;
   onViewPlan: () => void;
+  onReferenceDateChange?: (date: Date | undefined) => void;
 }
 
-export function PlanControls({ members, plan, onPlanChange, onViewPlan }: PlanControlsProps) {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [referenceDate, setReferenceDate] = useState<Date | undefined>();
+export function PlanControls({ members, plan, onPlanChange, onViewPlan, onReferenceDateChange }: PlanControlsProps) {
+  const [username, setUsername] = useLocalStorage<string>('carpool-username', '');
+  const [password, setPassword] = useSessionStorage<string>('carpool-password', '');
+  const [referenceDateString, setReferenceDateString] = useLocalStorage<string | null>('carpool-reference-date', null);
+  const [referenceDate, setReferenceDate] = useState<Date | undefined>(() => {
+    if (referenceDateString) {
+      try {
+        return parseISO(referenceDateString);
+      } catch {
+        return undefined;
+      }
+    }
+    return undefined;
+  });
   const [isGenerating, setIsGenerating] = useState(false);
   const { toast } = useToast();
+  const backendHostAndPort = "http://" + window.location.hostname + ":1338";
+
+  // Sync referenceDate state to localStorage whenever it changes
+  useEffect(() => {
+    if (referenceDate) {
+      setReferenceDateString(format(referenceDate, 'yyyy-MM-dd'));
+    } else {
+      setReferenceDateString(null);
+    }
+    onReferenceDateChange?.(referenceDate);
+  }, [referenceDate, setReferenceDateString, onReferenceDateChange]);
 
   const isDateValid = referenceDate && isMonday(referenceDate);
   const canGenerate = username.trim() && password.trim() && isDateValid && members.length > 0 && !plan;
 
   const formatDateForApi = (date: Date): number => {
-    const yy = date.getFullYear().toString().slice(-2);
+    const yyyy = date.getFullYear().toString();
     const mm = (date.getMonth() + 1).toString().padStart(2, '0');
     const dd = date.getDate().toString().padStart(2, '0');
-    return parseInt(`${yy}${mm}${dd}`);
+    return parseInt(`${yyyy}${mm}${dd}`);
   };
 
   const handleGenerate = async () => {
@@ -57,7 +78,7 @@ export function PlanControls({ members, plan, onPlanChange, onViewPlan }: PlanCo
         hash,
       };
 
-      const response = await fetch('http://127.0.0.1:1338/api/v1/drivingplan', {
+      const response = await fetch(`${backendHostAndPort}/api/v1/drivingplan`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -108,43 +129,17 @@ export function PlanControls({ members, plan, onPlanChange, onViewPlan }: PlanCo
     input.click();
   };
 
-  const handleExportPlan = () => {
-    if (!plan) return;
-    const data = JSON.stringify(plan, null, 2);
-    const blob = new Blob([data], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'driving-plan.json';
-    a.click();
-    URL.revokeObjectURL(url);
-    toast({ title: 'Exported', description: 'Driving plan exported to JSON.' });
-  };
-
-  const handleExportPdf = async () => {
-    if (!plan) return;
-    toast({ 
-      title: 'PDF Export', 
-      description: 'PDF export requires the backend service. Coming soon!',
-    });
-  };
-
-  const handleDiscardPlan = () => {
-    onPlanChange(null);
-    toast({ title: 'Plan discarded', description: 'You can now generate a new plan.' });
-  };
-
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Authentication Card */}
-      <Card className="surface-elevated">
+      <Card>
         <CardHeader className="pb-4">
           <div className="flex items-center gap-2">
             <Lock className="h-4 w-4 text-primary" />
             <CardTitle className="text-base">Schedule Access</CardTitle>
           </div>
           <CardDescription>
-            Enter credentials to fetch teacher schedules from the backend service
+            Enter credentials to fetch teacher schedules from webuntis
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -155,7 +150,7 @@ export function PlanControls({ members, plan, onPlanChange, onViewPlan }: PlanCo
                 id="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter username"
+                placeholder="Username"
                 disabled={!!plan}
               />
             </div>
@@ -166,7 +161,7 @@ export function PlanControls({ members, plan, onPlanChange, onViewPlan }: PlanCo
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter password"
+                placeholder="Password"
                 disabled={!!plan}
               />
             </div>
@@ -175,7 +170,7 @@ export function PlanControls({ members, plan, onPlanChange, onViewPlan }: PlanCo
       </Card>
 
       {/* Reference Date Card */}
-      <Card className="surface-elevated">
+      <Card>
         <CardHeader className="pb-4">
           <div className="flex items-center gap-2">
             <CalendarIcon className="h-4 w-4 text-primary" />
@@ -282,22 +277,6 @@ export function PlanControls({ members, plan, onPlanChange, onViewPlan }: PlanCo
           <>
             <Button onClick={onViewPlan} className="w-full" size="lg">
               View Driving Plan
-            </Button>
-            
-            <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" onClick={handleExportPlan}>
-                <Download className="h-4 w-4 mr-2" />
-                Export JSON
-              </Button>
-              <Button variant="outline" onClick={handleExportPdf}>
-                <FileText className="h-4 w-4 mr-2" />
-                Export PDF
-              </Button>
-            </div>
-            
-            <Button variant="destructive" onClick={handleDiscardPlan} className="w-full">
-              <Trash2 className="h-4 w-4 mr-2" />
-              Discard Plan
             </Button>
           </>
         )}
