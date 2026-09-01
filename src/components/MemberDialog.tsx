@@ -210,6 +210,17 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
           </TabsContent>
           
           <TabsContent value="custom" className="mt-4 space-y-4">
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCustomDays({})}
+                disabled={Object.keys(customDays).length === 0}
+                className="text-xs"
+              >
+                Reset All Custom Days
+              </Button>
+            </div>
             {/* Week A Row */}
             <div>
               <h4 className="text-sm font-medium text-muted-foreground mb-2">Week A</h4>
