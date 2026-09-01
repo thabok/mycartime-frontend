@@ -49,6 +49,15 @@ export function MemberCard({ member, onEdit, onEditCustom, onDelete }: MemberCar
             <Button
               variant="ghost"
               size="icon"
+              onClick={(e) => { e.stopPropagation(); onEditCustom(member); }}
+              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              title="Custom preferences"
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={(e) => { e.stopPropagation(); onDelete(member); }}
               className="h-8 w-8 text-muted-foreground hover:text-destructive"
             >
