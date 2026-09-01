@@ -210,17 +210,6 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
           </TabsContent>
           
           <TabsContent value="custom" className="mt-4 space-y-4">
-            <div className="flex justify-end">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCustomDays({})}
-                disabled={Object.keys(customDays).length === 0}
-                className="text-xs"
-              >
-                Reset All Custom Days
-              </Button>
-            </div>
             {/* Week A Row */}
             <div>
               <h4 className="text-sm font-medium text-muted-foreground mb-2">Week A</h4>
@@ -341,13 +330,27 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
           </TabsContent>
         </Tabs>
         
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave} disabled={!isValid}>
-            {member ? 'Update' : 'Add'} Member
-          </Button>
+        <DialogFooter className="sm:justify-between">
+          {activeTab === 'custom' ? (
+            <Button
+              variant="outline"
+              onClick={() => setCustomDays({})}
+              disabled={Object.keys(customDays).length === 0}
+              className="text-xs"
+            >
+              Reset All Custom Days
+            </Button>
+          ) : (
+            <div />
+          )}
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave} disabled={!isValid}>
+              {member ? 'Update' : 'Add'} Member
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
