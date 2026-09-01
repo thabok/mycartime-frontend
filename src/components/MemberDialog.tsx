@@ -135,7 +135,13 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className={dialogWidth}>
         <DialogHeader>
-          <DialogTitle>{member ? 'Edit Member' : 'Add New Member'}</DialogTitle>
+          <DialogTitle>
+            {member
+              ? activeTab === 'custom'
+                ? `Edit Member: ${firstName} ${lastName}`
+                : 'Edit Member'
+              : 'Add New Member'}
+          </DialogTitle>
         </DialogHeader>
         
         <Tabs value={activeTab} onValueChange={setActiveTab}>
