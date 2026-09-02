@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { format, isMonday, parseISO } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { Member, DrivingPlan } from '@/types/carpool';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -55,7 +55,42 @@ export function PlanControls({ members, plan, onPlanChange, onViewPlan, onRefere
     onReferenceDateChange?.(referenceDate);
   }, [referenceDate, setReferenceDateString, onReferenceDateChange]);
 
-  const isDateValid = referenceDate && isMonday(referenceDate);
+  // Auto-suggest a reference date (next date that falls in an A week) once
+  // credentials are available, unless the user already has one set/saved.
+  // Debounced so it doesn't fire on every keystroke, and retries whenever
+  // the credentials change again (e.g. after fixing a typo) rather than
+  // giving up permanently after one failed attempt.
+  useEffect(() => {
+    if (referenceDateString) return;
+    if (!username.trim() || !password.trim()) return;
+
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const hash = btoa(password);
+        const response = await fetch(`${backendHostAndPort}/api/v1/suggestedreferencedate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: username.trim(), hash }),
+        });
+        if (cancelled || !response.ok) return;
+        const { referenceDate: suggested } = await response.json() as { referenceDate: string };
+        if (cancelled) return;
+        setReferenceDate(parseISO(
+          `${suggested.slice(0, 4)}-${suggested.slice(4, 6)}-${suggested.slice(6, 8)}`
+        ));
+      } catch {
+        // Best-effort suggestion; the user can always pick a date manually.
+      }
+    }, 800);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [username, password, referenceDateString, backendHostAndPort]);
+
+  const isDateValid = !!referenceDate;
   const canGenerate = username.trim() && password.trim() && isDateValid && members.length > 0 && !plan;
 
   const formatDateForApi = (date: Date): number => {
@@ -177,7 +212,7 @@ export function PlanControls({ members, plan, onPlanChange, onViewPlan, onRefere
             <CardTitle className="text-base">Reference Date</CardTitle>
           </div>
           <CardDescription>
-            Select the Monday that starts Week A of the 2-week cycle
+            Marks the start of the current schedule and references week A.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -193,14 +228,9 @@ export function PlanControls({ members, plan, onPlanChange, onViewPlan, onRefere
               >
                 <CalendarIcon className="mr-2 h-4 w-4" />
                 {referenceDate ? (
-                  <>
-                    {format(referenceDate, 'EEEE, MMMM d, yyyy')}
-                    {!isMonday(referenceDate) && (
-                      <span className="ml-2 text-destructive text-xs">(Must be Monday)</span>
-                    )}
-                  </>
+                  format(referenceDate, 'EEEE, MMMM d, yyyy')
                 ) : (
-                  <span>Pick a Monday...</span>
+                  <span>Pick a date...</span>
                 )}
               </Button>
             </PopoverTrigger>
@@ -210,16 +240,9 @@ export function PlanControls({ members, plan, onPlanChange, onViewPlan, onRefere
                 selected={referenceDate}
                 onSelect={setReferenceDate}
                 className="pointer-events-auto"
-                modifiers={{ monday: (date) => isMonday(date) }}
-                modifiersStyles={{ monday: { fontWeight: 'bold' } }}
               />
             </PopoverContent>
           </Popover>
-          {referenceDate && !isMonday(referenceDate) && (
-            <p className="text-xs text-destructive mt-2">
-              Please select a Monday as the reference date.
-            </p>
-          )}
         </CardContent>
       </Card>
 
@@ -252,7 +275,7 @@ export function PlanControls({ members, plan, onPlanChange, onViewPlan, onRefere
                 {!username.trim() || !password.trim() 
                   ? 'Enter credentials above'
                   : !isDateValid 
-                    ? 'Select a Monday as reference date'
+                    ? 'Select a reference date'
                     : members.length === 0 
                       ? 'Add at least one member'
                       : 'A plan already exists'}
