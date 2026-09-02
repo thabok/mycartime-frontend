@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Member, DrivingPlan, ViewMode } from '@/types/carpool';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { Header } from '@/components/Header';
@@ -10,18 +11,24 @@ import { Toaster } from '@/components/ui/toaster';
 const Index = () => {
   const [members, setMembers] = useLocalStorage<Member[]>('carpool-members', []);
   const [plan, setPlan] = useLocalStorage<DrivingPlan | null>('carpool-plan', null);
-  const [viewMode, setViewMode] = useState<ViewMode>('members');
   const [referenceDate, setReferenceDate] = useState<Date | undefined>();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const viewMode: ViewMode = location.pathname.startsWith('/plan') ? 'plan' : 'members';
+
+  const handleViewModeChange = (mode: ViewMode) => {
+    navigate(mode === 'plan' ? '/plan' : '/members');
+  };
 
   const handleViewPlan = () => {
-    setViewMode('plan');
+    navigate('/plan');
   };
 
   return (
     <div className="min-h-screen bg-background">
-      <Header 
-        viewMode={viewMode} 
-        onViewModeChange={setViewMode}
+      <Header
+        viewMode={viewMode}
+        onViewModeChange={handleViewModeChange}
         hasPlan={!!plan}
       />
       

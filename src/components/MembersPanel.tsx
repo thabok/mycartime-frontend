@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Member, MemberViewMode, CustomDay } from '@/types/carpool';
 import { MemberCard } from './MemberCard';
 import { MemberListItem } from './MemberListItem';
@@ -115,8 +116,26 @@ interface MembersPanelProps {
 }
 
 export function MembersPanel({ members, onMembersChange, hasPlan, onNavigateToPlan }: MembersPanelProps) {
-  const [viewMode, setViewMode] = useState<MemberViewMode>('card');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const viewMode: MemberViewMode = searchParams.get('view') === 'list' ? 'list' : 'card';
+  const searchQuery = searchParams.get('q') ?? '';
+
+  const setViewMode = (mode: MemberViewMode) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (mode === 'card') next.delete('view'); else next.set('view', mode);
+      return next;
+    }, { replace: true });
+  };
+
+  const setSearchQuery = (query: string) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (query) next.set('q', query); else next.delete('q');
+      return next;
+    }, { replace: true });
+  };
+
   const [dialogOpen, setDialogOpen] = useState(false);
   const [customPrefsOpen, setCustomPrefsOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
@@ -249,6 +268,7 @@ const sortMembers = (membersList: Member[]) => {
             placeholder="Search members..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Escape') setSearchQuery(''); }}
             className="pl-10"
           />
         </div>

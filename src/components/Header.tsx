@@ -2,7 +2,8 @@ import { Car, Users, CalendarDays, Moon, Sun } from 'lucide-react';
 import { ViewMode } from '@/types/carpool';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 
 interface HeaderProps {
   viewMode: ViewMode;
@@ -11,13 +12,11 @@ interface HeaderProps {
 }
 
 export function Header({ viewMode, onViewModeChange, hasPlan }: HeaderProps) {
-  const [isDark, setIsDark] = useState(() => {
-    // Check system preference first
-    if (typeof window !== 'undefined') {
-      return window.matchMedia('(prefers-color-scheme: dark)').matches;
-    }
-    return false;
-  });
+  // Theme is a personal preference, persisted in localStorage rather than the URL.
+  const [isDark, setIsDark] = useLocalStorage(
+    'carpool-theme-dark',
+    typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
+  );
 
   useEffect(() => {
     // Apply theme on mount and when changed

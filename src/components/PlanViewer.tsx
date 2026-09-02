@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import { DrivingPlan, DayPlan, Party, Member } from '@/types/carpool';
 import { Input } from '@/components/ui/input';
@@ -60,9 +61,31 @@ interface SelectedMemberInfo {
   party: Party;
 }
 
+type WeekFilter = 'summary' | 'all' | 'A' | 'B';
+const WEEK_FILTERS: WeekFilter[] = ['summary', 'all', 'A', 'B'];
+
 export function PlanViewer({ plan, onPlanChange, members, referenceDate }: PlanViewerProps) {
-  const [weekFilter, setWeekFilter] = useState<'summary' | 'all' | 'A' | 'B'>('summary');
-  const [personFilter, setPersonFilter] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const weekFilter: WeekFilter = WEEK_FILTERS.includes(tabParam as WeekFilter) ? (tabParam as WeekFilter) : 'summary';
+  const personFilter = searchParams.get('q') ?? '';
+
+  const setWeekFilter = (tab: WeekFilter) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (tab === 'summary') next.delete('tab'); else next.set('tab', tab);
+      return next;
+    }, { replace: true });
+  };
+
+  const setPersonFilter = (query: string) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (query) next.set('q', query); else next.delete('q');
+      return next;
+    }, { replace: true });
+  };
+
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingDayPlan, setEditingDayPlan] = useState<DayPlan | null>(null);
   const [selectedMember, setSelectedMember] = useState<SelectedMemberInfo | null>(null);
@@ -487,6 +510,7 @@ export function PlanViewer({ plan, onPlanChange, members, referenceDate }: PlanV
                   placeholder="filter by name or initials"
                   value={personFilter}
                   onChange={(e) => setPersonFilter(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Escape') setPersonFilter(''); }}
                   className="h-9 text-sm pl-3 pr-3"
                 />
               </div>
