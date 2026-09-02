@@ -10,7 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, ArrowRight, Search, Trash2, X } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Flag, Search, Trash2, UserRoundX, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -265,8 +265,6 @@ export function DayPlanEditDialog({
     .sort((a, b) => a.time - b.time);
 
   const renderPartyPreview = (party: Party, isLast: boolean) => {
-    const driverPrefix = party.isLonelyDriver ? '**' : (party.isDesignatedDriver ? '*' : '');
-    
     const passengersFormatted = party.passengers.map(p => {
       const member = membersByInitials.get(p.toLowerCase());
       if (member) {
@@ -287,7 +285,12 @@ export function DayPlanEditDialog({
         <span className="text-muted-foreground font-mono">[{formatTime(party.time)}]</span>
         {' '}
         <span className="font-semibold">
-          {driverPrefix}{formatPerson(party.driver)}
+          {party.isLonelyDriver ? (
+            <UserRoundX className="inline h-3.5 w-3.5 mb-0.5 mr-1" />
+          ) : party.isDesignatedDriver ? (
+            <Flag className="inline h-3.5 w-3.5 mb-0.5 mr-1" />
+          ) : null}
+          {formatPerson(party.driver)}
         </span>
         {passengersText && (
           <span className="text-muted-foreground">{passengersText}</span>

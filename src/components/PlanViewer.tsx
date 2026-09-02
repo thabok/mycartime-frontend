@@ -5,10 +5,11 @@ import { DrivingPlan, DayPlan, Party, Member } from '@/types/carpool';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Pencil, Users, FileText, Download, Trash2 } from 'lucide-react';
+import { Pencil, Users, FileText, Download, Trash2, Flag, UserRoundX } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DayPlanEditDialog } from './DayPlanEditDialog';
 import { useToast } from '@/hooks/use-toast';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 
 interface PlanViewerProps {
   plan: DrivingPlan;
@@ -89,6 +90,8 @@ export function PlanViewer({ plan, onPlanChange, members, referenceDate }: PlanV
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingDayPlan, setEditingDayPlan] = useState<DayPlan | null>(null);
   const [selectedMember, setSelectedMember] = useState<SelectedMemberInfo | null>(null);
+  const [showDesignatedDriver, setShowDesignatedDriver] = useLocalStorage('carpool-show-designated-driver', false);
+  const [showSoloDriver, setShowSoloDriver] = useLocalStorage('carpool-show-solo-driver', false);
   const { toast } = useToast();
 
   // Create lookup map: initials -> Member
@@ -148,8 +151,42 @@ export function PlanViewer({ plan, onPlanChange, members, referenceDate }: PlanV
     if (customDay?.drivingSkip) prefLabels.push('no car');
     if (customDay?.noWaitingAfternoon) prefLabels.push('no wait pm');
 
-    // Build party display text
-    const passengerDisplay = (selectedMember.party.passengers.length > 0 ? ' · ' : '') + selectedMember.party.passengers.map(initials => formatPerson(initials)).join(' · ');
+    // Determine which party member's own requirement (custom preference, or failing
+    // that their plain timetable) is what's pushing the party's time earlier
+    // (schoolbound) / later (homebound) than the driver's own timetable would.
+    const timeInfoByInitials = selectedMember.party.schoolbound
+      ? selectedMember.dayPlan.schoolboundTimeInfoByInitials
+      : selectedMember.dayPlan.homeboundTimeInfoByInitials;
+    const causesEarlierOrLater = (initials: string): boolean => {
+      const partyTime = selectedMember.party.time;
+      const driverInfo = timeInfoByInitials?.[selectedMember.party.driver];
+      if (!driverInfo || driverInfo.timetableTime == null) return false;
+
+      const deviatesFromDriverDefault = selectedMember.party.schoolbound
+        ? partyTime < driverInfo.timetableTime
+        : partyTime > driverInfo.timetableTime;
+      if (!deviatesFromDriverDefault) return false;
+
+      const info = timeInfoByInitials?.[initials];
+      const personalRequiredTime = info?.customPrefTime ?? info?.timetableTime;
+      return personalRequiredTime === partyTime;
+    };
+
+    const renderPartyPerson = (initials: string, bold: boolean) => (
+      <button
+        key={initials}
+        onClick={() => setSelectedMember({ initials, dayPlan: selectedMember.dayPlan, party: selectedMember.party })}
+        className={cn(
+          "cursor-pointer transition-colors hover:text-primary hover:underline",
+          bold && "font-bold",
+          selectedMember.initials === initials && "text-primary underline"
+        )}
+        title={causesEarlierOrLater(initials) ? `Makes this party leave ${selectedMember.party.schoolbound ? 'earlier' : 'later'}` : undefined}
+      >
+        {causesEarlierOrLater(initials) && '* '}
+        {formatPerson(initials)}
+      </button>
+    );
 
     return (
       <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-3">
@@ -225,7 +262,18 @@ export function PlanViewer({ plan, onPlanChange, members, referenceDate }: PlanV
           <div className="space-y-1 pt-2">
             <p className="font-medium">Party</p>
             <p className="text-muted-foreground pl-3">
-              [{formatTime(selectedMember.party.time)}] <span className="font-bold">{formatPerson(selectedMember.party.driver)}</span> {passengerDisplay}
+              [{formatTime(selectedMember.party.time)}] {renderPartyPerson(selectedMember.party.driver, true)}
+              {selectedMember.party.passengers.length > 0 && (
+                <>
+                  {' · '}
+                  {selectedMember.party.passengers.map((initials, idx) => (
+                    <span key={initials}>
+                      {idx > 0 && ' · '}
+                      {renderPartyPerson(initials, false)}
+                    </span>
+                  ))}
+                </>
+              )}
             </p>
             {selectedMember.party.creationPhase && (
               <p className="text-xs text-muted-foreground pl-3">
@@ -361,7 +409,6 @@ export function PlanViewer({ plan, onPlanChange, members, referenceDate }: PlanV
         driverMember.lastName.toLowerCase().includes(query)
       ))
     );
-    const driverPrefix = party.isLonelyDriver ? '**' : (party.isDesignatedDriver ? '*' : '');
     const isDriverSelected = selectedMember?.initials === party.driver && selectedMember?.party === party;
     
     const passengersFormatted = party.passengers.map(p => {
@@ -400,7 +447,12 @@ export function PlanViewer({ plan, onPlanChange, members, referenceDate }: PlanV
             "hover:text-primary hover:font-bold"
           )}
         >
-          {driverPrefix}{formatPerson(party.driver)}
+          {party.isLonelyDriver ? (
+            showSoloDriver && <UserRoundX className="inline h-3.5 w-3.5 mb-0.5 mr-1 text-muted-foreground" />
+          ) : party.isDesignatedDriver ? (
+            showDesignatedDriver && <Flag className="inline h-3.5 w-3.5 mb-0.5 mr-1 text-muted-foreground" />
+          ) : null}
+          {formatPerson(party.driver)}
         </button>
         {passengersFormatted.length > 0 && (
           <span className="text-muted-foreground">
@@ -677,6 +729,29 @@ export function PlanViewer({ plan, onPlanChange, members, referenceDate }: PlanV
                 <p className="text-muted-foreground text-sm">No day plans match your filters</p>
               </div>
             )}
+
+            <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
+              <button
+                onClick={() => setShowDesignatedDriver(v => !v)}
+                className={cn(
+                  "flex items-center gap-1 cursor-pointer transition-opacity hover:opacity-100",
+                  !showDesignatedDriver && "opacity-40"
+                )}
+                title={showDesignatedDriver ? "Hide designated driver indicator" : "Show designated driver indicator"}
+              >
+                <Flag className="h-3.5 w-3.5" /> designated driver
+              </button>
+              <button
+                onClick={() => setShowSoloDriver(v => !v)}
+                className={cn(
+                  "flex items-center gap-1 cursor-pointer transition-opacity hover:opacity-100",
+                  !showSoloDriver && "opacity-40"
+                )}
+                title={showSoloDriver ? "Hide solo driver indicator" : "Show solo driver indicator"}
+              >
+                <UserRoundX className="h-3.5 w-3.5" /> solo driver (no passengers)
+              </button>
+            </div>
           </TabsContent>
         ))}
       </Tabs>
