@@ -138,6 +138,12 @@
     background: var(--gradient-card);
     box-shadow: var(--shadow-md);
   }
+
+  /* Hide the native clock indicator on compact time inputs; a single
+     shared Clock icon is rendered next to each pair instead. */
+  .time-no-indicator::-webkit-calendar-picker-indicator {
+    display: none;
+  }
 }
 
 @layer utilities {

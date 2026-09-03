@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Clock } from 'lucide-react';
 import { Member, CustomDay } from '@/types/carpool';
 import {
   Dialog,
@@ -71,14 +72,34 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
     }
   }, [firstName, lastName, member]);
 
+  const normalizeTime = (value: string): string => {
+    const trimmed = value.trim();
+    if (!trimmed) return '';
+    // Hour only (e.g. "9" or "09") -> pad to "HH:00"
+    if (/^\d{1,2}$/.test(trimmed)) {
+      return `${trimmed.padStart(2, '0')}:00`;
+    }
+    // "H:MM" or "HH:M" -> "HH:MM"
+    const match = trimmed.match(/^(\d{1,2}):(\d{1,2})$/);
+    if (match) {
+      return `${match[1].padStart(2, '0')}:${match[2].padStart(2, '0')}`;
+    }
+    return trimmed;
+  };
+
   const handleSave = () => {
     const cleanedCustomDays: Record<string, CustomDay> = {};
     Object.entries(customDays).forEach(([key, day]) => {
-      const isEmpty = !day.ignoreCompletely && !day.noWaitingAfternoon && !day.needsCar && 
-                      !day.drivingSkip && !day.skipMorning && !day.skipAfternoon && 
-                      !day.customStart && !day.customEnd;
+      const normalizedDay: CustomDay = {
+        ...day,
+        customStart: normalizeTime(day.customStart),
+        customEnd: normalizeTime(day.customEnd),
+      };
+      const isEmpty = !normalizedDay.ignoreCompletely && !normalizedDay.noWaitingAfternoon && !normalizedDay.needsCar &&
+                      !normalizedDay.drivingSkip && !normalizedDay.skipMorning && !normalizedDay.skipAfternoon &&
+                      !normalizedDay.customStart && !normalizedDay.customEnd;
       if (!isEmpty) {
-        cleanedCustomDays[key] = day;
+        cleanedCustomDays[key] = normalizedDay;
       }
     });
 
@@ -257,9 +278,10 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
                             <Checkbox checked={day.noWaitingAfternoon} onCheckedChange={(checked) => updateCustomDay(dayKey, 'noWaitingAfternoon', !!checked)} className="h-3.5 w-3.5" />
                             No wait PM
                           </label>
-                          <div className="flex gap-1 mt-2">
-                            <Input type="time" value={day.customStart} onChange={(e) => updateCustomDay(dayKey, 'customStart', e.target.value)} className="h-5 text-[10px] px-0.5 w-full rounded" placeholder="Start" />
-                            <Input type="time" value={day.customEnd} onChange={(e) => updateCustomDay(dayKey, 'customEnd', e.target.value)} className="h-5 text-[10px] px-0.5 w-full rounded" placeholder="End" />
+                          <div className="flex gap-1 mt-2 items-center">
+                            <Input type="time" value={day.customStart} onChange={(e) => updateCustomDay(dayKey, 'customStart', e.target.value)} className="h-5 text-[10px] px-0.5 w-full rounded time-no-indicator" placeholder="Start" />
+                            <Input type="time" value={day.customEnd} onChange={(e) => updateCustomDay(dayKey, 'customEnd', e.target.value)} className="h-5 text-[10px] px-0.5 w-full rounded time-no-indicator" placeholder="End" />
+                            <Clock className="h-3 w-3 text-muted-foreground shrink-0" />
                           </div>
                         </div>
                       )}
@@ -316,9 +338,10 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
                             <Checkbox checked={day.noWaitingAfternoon} onCheckedChange={(checked) => updateCustomDay(dayKey, 'noWaitingAfternoon', !!checked)} className="h-3.5 w-3.5" />
                             No wait PM
                           </label>
-                          <div className="flex gap-1 mt-2 text-[10px] text-muted-foreground">
-                            <Input type="time" value={day.customStart} onChange={(e) => updateCustomDay(dayKey, 'customStart', e.target.value)} className="h-5 text-[10px] px-0.5 w-full rounded" placeholder="Start" />
-                            <Input type="time" value={day.customEnd} onChange={(e) => updateCustomDay(dayKey, 'customEnd', e.target.value)} className="h-5 text-[10px] px-0.5 w-full rounded" placeholder="End" />
+                          <div className="flex gap-1 mt-2 items-center text-[10px] text-muted-foreground">
+                            <Input type="time" value={day.customStart} onChange={(e) => updateCustomDay(dayKey, 'customStart', e.target.value)} className="h-5 text-[10px] px-0.5 w-full rounded time-no-indicator" placeholder="Start" />
+                            <Input type="time" value={day.customEnd} onChange={(e) => updateCustomDay(dayKey, 'customEnd', e.target.value)} className="h-5 text-[10px] px-0.5 w-full rounded time-no-indicator" placeholder="End" />
+                            <Clock className="h-3 w-3 text-muted-foreground shrink-0" />
                           </div>
                         </div>
                       )}
