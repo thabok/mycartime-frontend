@@ -301,12 +301,12 @@ export function DayPlanEditDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-4xl">
-        <DialogHeader>
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>Edit Day Plan - {dayLabel}</DialogTitle>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 flex-1 min-h-0 overflow-y-auto -m-1 p-1">
           {/* Left side: Day Plan Preview */}
           <div className="space-y-4">
             <p className="text-sm font-medium text-foreground">Current Schedule</p>
@@ -314,7 +314,7 @@ export function DayPlanEditDialog({
               {/* Schoolbound */}
               <div>
                 <p className="text-xs font-semibold text-muted-foreground mb-2">Schoolbound</p>
-                <ScrollArea className="max-h-40">
+                <ScrollArea className="max-h-64">
                   {schoolboundParties.length > 0 ? (
                     schoolboundParties.map((party, idx) => renderPartyPreview(party, idx === schoolboundParties.length - 1))
                   ) : (
@@ -325,7 +325,7 @@ export function DayPlanEditDialog({
               {/* Homebound */}
               <div>
                 <p className="text-xs font-semibold text-muted-foreground mb-2">Homebound</p>
-                <ScrollArea className="max-h-40">
+                <ScrollArea className="max-h-64">
                   {homeboundParties.length > 0 ? (
                     homeboundParties.map((party, idx) => renderPartyPreview(party, idx === homeboundParties.length - 1))
                   ) : (
@@ -497,7 +497,7 @@ export function DayPlanEditDialog({
           </div>
         </div>
 
-        <DialogFooter className="gap-2 sm:gap-0">
+        <DialogFooter className="gap-2 sm:gap-0 flex-shrink-0">
           <Button variant="outline" onClick={() => handleOpenChange(false)}>
             Cancel
           </Button>
