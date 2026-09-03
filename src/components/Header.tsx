@@ -1,8 +1,9 @@
-import { Car, Users, CalendarDays, Moon, Sun } from 'lucide-react';
+import { Car, Users, CalendarDays, MessageSquare, Moon, Sun } from 'lucide-react';
 import { ViewMode } from '@/types/carpool';
 import { Button } from '@/components/ui/button';
+import { FeedbackDialog } from '@/components/FeedbackDialog';
 import { cn } from '@/lib/utils';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 
 interface HeaderProps {
@@ -12,6 +13,8 @@ interface HeaderProps {
 }
 
 export function Header({ viewMode, onViewModeChange, hasPlan }: HeaderProps) {
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+
   // Theme is a personal preference, persisted in localStorage rather than the URL.
   const [isDark, setIsDark] = useLocalStorage(
     'carpool-theme-dark',
@@ -47,19 +50,30 @@ export function Header({ viewMode, onViewModeChange, hasPlan }: HeaderProps) {
           
           <nav className="flex items-center gap-2">
             <Button
+                variant="ghost"
+                size="sm"
+                onClick={toggleTheme}
+                className="h-9 w-9 p-0"
+                title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+              >
+                {isDark ? (
+                  <Sun className="h-4 w-4" />
+                ) : (
+                  <Moon className="h-4 w-4" />
+                )}
+            </Button>
+
+            <Button
               variant="ghost"
               size="sm"
-              onClick={toggleTheme}
-              className="h-9 w-9 p-0"
-              title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+              onClick={() => setFeedbackOpen(true)}
+              className="gap-2"
+              title="Send feedback"
             >
-              {isDark ? (
-                <Sun className="h-4 w-4" />
-              ) : (
-                <Moon className="h-4 w-4" />
-              )}
+              <MessageSquare className="h-4 w-4" />
+              Feedback
             </Button>
-            
+
             <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-xl">
               <Button
                 variant={viewMode === 'members' ? 'default' : 'ghost'}
@@ -89,6 +103,8 @@ export function Header({ viewMode, onViewModeChange, hasPlan }: HeaderProps) {
           </nav>
         </div>
       </div>
+
+      <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
     </header>
   );
 }
