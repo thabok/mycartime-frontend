@@ -141,8 +141,22 @@
 
   /* Hide the native clock indicator on compact time inputs; a single
      shared Clock icon is rendered next to each pair instead. */
+  .time-no-indicator {
+    -webkit-appearance: none;
+    appearance: none;
+  }
   .time-no-indicator::-webkit-calendar-picker-indicator {
     display: none;
+  }
+  /* Remove the reserved right-side space next to the minutes segment and
+     keep the hh:mm value left-aligned and compact. */
+  .time-no-indicator::-webkit-date-and-time-value {
+    text-align: left;
+    margin: 0;
+    width: 100%;
+  }
+  .time-no-indicator::-webkit-datetime-edit-fields-wrapper {
+    padding: 0;
   }
 }
 

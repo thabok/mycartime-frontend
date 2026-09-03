@@ -114,6 +114,14 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
     onOpenChange(false);
   };
 
+  // Native time inputs don't always fire onChange when only the hour is set.
+  // On blur, read the committed value and normalize hour-only input to HH:00.
+  const handleTimeBlur = (dayIndex: string, field: 'customStart' | 'customEnd', rawValue: string) => {
+    const normalized = normalizeTime(rawValue);
+    if (!normalized) return;
+    updateCustomDay(dayIndex, field, normalized);
+  };
+
   const updateCustomDay = (dayIndex: string, field: keyof CustomDay, value: boolean | string) => {
     setCustomDays(prev => {
       const currentDay = prev[dayIndex] || createEmptyCustomDay();
@@ -279,8 +287,8 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
                             No wait PM
                           </label>
                           <div className="flex gap-1 mt-2 items-center">
-                            <Input type="time" value={day.customStart} onChange={(e) => updateCustomDay(dayKey, 'customStart', e.target.value)} className="h-5 text-[10px] px-0.5 w-full rounded time-no-indicator" placeholder="Start" />
-                            <Input type="time" value={day.customEnd} onChange={(e) => updateCustomDay(dayKey, 'customEnd', e.target.value)} className="h-5 text-[10px] px-0.5 w-full rounded time-no-indicator" placeholder="End" />
+                            <Input type="time" value={day.customStart} onChange={(e) => updateCustomDay(dayKey, 'customStart', e.target.value)} onBlur={(e) => handleTimeBlur(dayKey, 'customStart', e.target.value)} className="h-5 text-[10px] px-0.5 w-full rounded time-no-indicator" placeholder="Start" />
+                            <Input type="time" value={day.customEnd} onChange={(e) => updateCustomDay(dayKey, 'customEnd', e.target.value)} onBlur={(e) => handleTimeBlur(dayKey, 'customEnd', e.target.value)} className="h-5 text-[10px] px-0.5 w-full rounded time-no-indicator" placeholder="End" />
                             <Clock className="h-3 w-3 text-muted-foreground shrink-0" />
                           </div>
                         </div>
@@ -339,8 +347,8 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
                             No wait PM
                           </label>
                           <div className="flex gap-1 mt-2 items-center text-[10px] text-muted-foreground">
-                            <Input type="time" value={day.customStart} onChange={(e) => updateCustomDay(dayKey, 'customStart', e.target.value)} className="h-5 text-[10px] px-0.5 w-full rounded time-no-indicator" placeholder="Start" />
-                            <Input type="time" value={day.customEnd} onChange={(e) => updateCustomDay(dayKey, 'customEnd', e.target.value)} className="h-5 text-[10px] px-0.5 w-full rounded time-no-indicator" placeholder="End" />
+                            <Input type="time" value={day.customStart} onChange={(e) => updateCustomDay(dayKey, 'customStart', e.target.value)} onBlur={(e) => handleTimeBlur(dayKey, 'customStart', e.target.value)} className="h-5 text-[10px] px-0.5 w-full rounded time-no-indicator" placeholder="Start" />
+                            <Input type="time" value={day.customEnd} onChange={(e) => updateCustomDay(dayKey, 'customEnd', e.target.value)} onBlur={(e) => handleTimeBlur(dayKey, 'customEnd', e.target.value)} className="h-5 text-[10px] px-0.5 w-full rounded time-no-indicator" placeholder="End" />
                             <Clock className="h-3 w-3 text-muted-foreground shrink-0" />
                           </div>
                         </div>
