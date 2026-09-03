@@ -5,9 +5,10 @@ import { DrivingPlan, DayPlan, Party, Member } from '@/types/carpool';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Pencil, Users, FileText, Download, Trash2, Flag, UserRoundX } from 'lucide-react';
+import { Pencil, Users, FileText, Download, Trash2, Flag, UserRoundX, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DayPlanEditDialog } from './DayPlanEditDialog';
+import { MemberDialog } from './MemberDialog';
 import { useToast } from '@/hooks/use-toast';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 
@@ -15,6 +16,7 @@ interface PlanViewerProps {
   plan: DrivingPlan;
   onPlanChange: (plan: DrivingPlan) => void;
   members: Member[];
+  onMembersChange: (members: Member[]) => void;
   referenceDate?: Date;
 }
 
@@ -65,11 +67,15 @@ interface SelectedMemberInfo {
 type WeekFilter = 'summary' | 'all' | 'A' | 'B';
 const WEEK_FILTERS: WeekFilter[] = ['summary', 'all', 'A', 'B'];
 
-export function PlanViewer({ plan, onPlanChange, members, referenceDate }: PlanViewerProps) {
+export function PlanViewer({ plan, onPlanChange, members, onMembersChange, referenceDate }: PlanViewerProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
   const weekFilter: WeekFilter = WEEK_FILTERS.includes(tabParam as WeekFilter) ? (tabParam as WeekFilter) : 'summary';
   const personFilter = searchParams.get('q') ?? '';
+  const selectedMemberParam = searchParams.get('member');
+  const selectedDayParam = searchParams.get('day');
+  const selectedDriverParam = searchParams.get('driver');
+  const selectedTimeParam = searchParams.get('time');
 
   const setWeekFilter = (tab: WeekFilter) => {
     setSearchParams(prev => {
@@ -87,9 +93,41 @@ export function PlanViewer({ plan, onPlanChange, members, referenceDate }: PlanV
     }, { replace: true });
   };
 
+  const selectedMember: SelectedMemberInfo | null = useMemo(() => {
+    if (!selectedMemberParam || !selectedDayParam || !selectedDriverParam || !selectedTimeParam) return null;
+    const dayPlan = Object.values(plan.dayPlans).find(
+      dp => dp.dayOfWeekABCombo.uniqueNumber.toString() === selectedDayParam
+    );
+    if (!dayPlan) return null;
+    const party = dayPlan.parties.find(
+      p => p.driver === selectedDriverParam && p.time.toString() === selectedTimeParam
+    );
+    if (!party) return null;
+    return { initials: selectedMemberParam, dayPlan, party };
+  }, [plan, selectedMemberParam, selectedDayParam, selectedDriverParam, selectedTimeParam]);
+
+  const setSelectedMember = (info: SelectedMemberInfo | null) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (info) {
+        next.set('member', info.initials);
+        next.set('day', info.dayPlan.dayOfWeekABCombo.uniqueNumber.toString());
+        next.set('driver', info.party.driver);
+        next.set('time', info.party.time.toString());
+      } else {
+        next.delete('member');
+        next.delete('day');
+        next.delete('driver');
+        next.delete('time');
+      }
+      return next;
+    }, { replace: true });
+  };
+
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingDayPlan, setEditingDayPlan] = useState<DayPlan | null>(null);
-  const [selectedMember, setSelectedMember] = useState<SelectedMemberInfo | null>(null);
+  const [customDaysMember, setCustomDaysMember] = useState<Member | null>(null);
+  const [customDaysDialogOpen, setCustomDaysDialogOpen] = useState(false);
   const [showDesignatedDriver, setShowDesignatedDriver] = useLocalStorage('carpool-show-designated-driver', false);
   const [showSoloDriver, setShowSoloDriver] = useLocalStorage('carpool-show-solo-driver', false);
   const { toast } = useToast();
@@ -110,22 +148,16 @@ export function PlanViewer({ plan, onPlanChange, members, referenceDate }: PlanV
     return initials;
   }, [membersByInitials]);
 
-  // Helper function to generate schedule link
-  const getScheduleUrl = (initials: string): string | null => {
-    if (!plan.memberIdMap || !plan.scheduleUrlTemplate) {
-      return null;
-    }
-    const memberId = plan.memberIdMap[initials];
-    if (!memberId) {
-      return null;
-    }
-    // Format reference date as YYYY-MM-DD, fallback to today if not available
-    const dateToUse = referenceDate || new Date();
-    const dateStr = format(dateToUse, 'yyyy-MM-dd');
-    // Replace DATE and TEACHER_ID placeholders
-    return plan.scheduleUrlTemplate
-      .replace('DATE', dateStr)
-      .replace('TEACHER_ID', memberId);
+  const openCustomDays = (initials: string) => {
+    const member = membersByInitials.get(initials.toLowerCase());
+    if (!member) return;
+    setCustomDaysMember(member);
+    setCustomDaysDialogOpen(true);
+  };
+
+  const handleSaveCustomDaysMember = (updated: Member) => {
+    if (!customDaysMember) return;
+    onMembersChange(members.map(m => m.initials === customDaysMember.initials ? updated : m));
   };
 
   const renderMemberInfoPane = () => {
@@ -140,8 +172,6 @@ export function PlanViewer({ plan, onPlanChange, members, referenceDate }: PlanV
     const timeInfo = selectedMember.party.schoolbound
       ? selectedMember.dayPlan.schoolboundTimeInfoByInitials?.[selectedMember.initials]
       : selectedMember.dayPlan.homeboundTimeInfoByInitials?.[selectedMember.initials];
-
-    const scheduleUrl = getScheduleUrl(selectedMember.initials);
 
     // Custom day preferences (keys are 0-based day indices, uniqueNumber is 1-based)
     const customDay = member.customDays?.[(dayCombo.uniqueNumber - 1).toString()];
@@ -194,7 +224,13 @@ export function PlanViewer({ plan, onPlanChange, members, referenceDate }: PlanV
           <div>
             <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium">Member Details</p>
             <p className="text-lg font-semibold">
-              {member.firstName} {member.lastName}
+              <button
+                onClick={() => openCustomDays(member.initials)}
+                className="hover:text-primary hover:underline transition-colors"
+                title="Custom preferences"
+              >
+                {member.firstName} {member.lastName}
+              </button>
               <span className="text-muted-foreground ml-2">({member.initials})</span>
               {prefLabels.length > 0 && (
                 <span className="text-sm text-muted-foreground font-normal ml-2">
@@ -224,20 +260,6 @@ export function PlanViewer({ plan, onPlanChange, members, referenceDate }: PlanV
                 <p className="text-muted-foreground">
                   <span className="font-medium">Timetable:</span>{' '}
                   {formatTime(timeInfo?.timetableTime || 0)}h
-                  {scheduleUrl && (
-                    <>
-                      {' '}
-                      <a
-                        href={scheduleUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary hover:underline"
-                        title="View schedule in WebUntis"
-                      >
-                        (View schedule)
-                      </a>
-                    </>
-                  )}
                 </p>
               )}
               {timeInfo?.customPrefTime !== null && (
@@ -602,24 +624,6 @@ export function PlanViewer({ plan, onPlanChange, members, referenceDate }: PlanV
                 people.sort((a, b) => a.name.localeCompare(b.name))
               ] as [number, Array<{ name: string; initials: string }>]);
 
-            // Helper function to generate schedule link
-            const getScheduleUrl = (initials: string): string | null => {
-              if (!plan.memberIdMap || !plan.scheduleUrlTemplate) {
-                return null;
-              }
-              const memberId = plan.memberIdMap[initials];
-              if (!memberId) {
-                return null;
-              }
-              // Format reference date as YYYY-MM-DD, fallback to today if not available
-              const dateToUse = referenceDate || new Date();
-              const dateStr = format(dateToUse, 'yyyy-MM-dd');
-              // Replace DATE and TEACHER_ID placeholders
-              return plan.scheduleUrlTemplate
-                .replace('DATE', dateStr)
-                .replace('TEACHER_ID', memberId);
-            };
-
             return (
               <div className="rounded-lg border border-border overflow-hidden">
                 {sortedCounts.map(([count, people], idx) => (
@@ -638,36 +642,22 @@ export function PlanViewer({ plan, onPlanChange, members, referenceDate }: PlanV
                     <div className="px-4 py-3">
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
                         {people.map((person) => {
-                          const scheduleUrl = getScheduleUrl(person.initials);
-                          const content = (
-                            <>
-                              {person.name}
-                              <span className="ml-1">({person.initials})</span>
-                            </>
-                          );
-                          
-                          if (scheduleUrl) {
-                            return (
-                              <a
-                                key={person.initials}
-                                href={scheduleUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-sm text-muted-foreground hover:font-bold cursor-pointer transition-all"
-                                title="View schedule in WebUntis"
-                              >
-                                {content}
-                              </a>
-                            );
-                          }
-                          
+                          const member = membersByInitials.get(person.initials.toLowerCase());
                           return (
-                            <div 
+                            <button
                               key={person.initials}
-                              className="text-sm text-foreground"
+                              onClick={() => openCustomDays(person.initials)}
+                              className="text-sm text-muted-foreground hover:font-bold cursor-pointer transition-all text-left inline-flex items-center gap-1"
+                              title="Custom preferences"
                             >
-                              {content}
-                            </div>
+                              <span>
+                                {person.name}
+                                <span className="ml-1">({person.initials})</span>
+                              </span>
+                              {member?.isPartTime && (
+                                <Clock className="h-3 w-3 text-muted-foreground/60 shrink-0" aria-label="Part-time" />
+                              )}
+                            </button>
                           );
                         })}
                       </div>
@@ -762,6 +752,14 @@ export function PlanViewer({ plan, onPlanChange, members, referenceDate }: PlanV
         dayPlan={editingDayPlan}
         onApplyTransfers={handleApplyTransfers}
         members={members}
+      />
+
+      <MemberDialog
+        open={customDaysDialogOpen}
+        onOpenChange={setCustomDaysDialogOpen}
+        member={customDaysMember}
+        onSave={handleSaveCustomDaysMember}
+        initialTab="custom"
       />
     </div>
   );

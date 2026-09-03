@@ -45,6 +45,7 @@ const Index = () => {
             plan={plan}
             onPlanChange={setPlan}
             members={members}
+            onMembersChange={setMembers}
             referenceDate={referenceDate}
           />
         ) : (
