@@ -114,13 +114,36 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
     onOpenChange(false);
   };
 
-  // Native time inputs don't always fire onChange when only the hour is set.
-  // On blur, read the committed value and normalize hour-only input to HH:00.
-  const handleTimeBlur = (dayIndex: string, field: 'customStart' | 'customEnd', rawValue: string) => {
-    const normalized = normalizeTime(rawValue);
-    if (!normalized) return;
-    updateCustomDay(dayIndex, field, normalized);
+  // Native time inputs report an empty value while incomplete (e.g. only the
+  // hour typed), so we buffer typed digits and complete them to HH:00 on blur.
+  const typedDigits = useRef<Record<string, string>>({});
+
+  const handleTimeKeyDown = (bufferKey: string, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (/^[0-9]$/.test(e.key)) {
+      typedDigits.current[bufferKey] = (typedDigits.current[bufferKey] || '') + e.key;
+    } else if (e.key === 'Backspace' || e.key === 'Delete') {
+      typedDigits.current[bufferKey] = '';
+    }
   };
+
+  const handleTimeBlur = (dayIndex: string, field: 'customStart' | 'customEnd', rawValue: string, bufferKey: string) => {
+    const buffered = typedDigits.current[bufferKey] || '';
+    typedDigits.current[bufferKey] = '';
+
+    if (rawValue) {
+      const normalized = normalizeTime(rawValue);
+      if (normalized) updateCustomDay(dayIndex, field, normalized);
+      return;
+    }
+
+    // Incomplete input: use the digits the user typed as the hour.
+    const digits = buffered.slice(0, 2);
+    if (!digits) return;
+    const hour = parseInt(digits, 10);
+    if (isNaN(hour) || hour > 23) return;
+    updateCustomDay(dayIndex, field, `${String(hour).padStart(2, '0')}:00`);
+  };
+
 
   const updateCustomDay = (dayIndex: string, field: keyof CustomDay, value: boolean | string) => {
     setCustomDays(prev => {
