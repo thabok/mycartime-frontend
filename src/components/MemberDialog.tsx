@@ -338,9 +338,10 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
                             <Checkbox checked={day.noWaitingAfternoon} onCheckedChange={(checked) => updateCustomDay(dayKey, 'noWaitingAfternoon', !!checked)} className="h-3.5 w-3.5" />
                             No wait PM
                           </label>
-                          <div className="flex gap-1 mt-2 text-[10px] text-muted-foreground">
-                            <Input type="time" value={day.customStart} onChange={(e) => updateCustomDay(dayKey, 'customStart', e.target.value)} className="h-5 text-[10px] px-0.5 w-full rounded" placeholder="Start" />
-                            <Input type="time" value={day.customEnd} onChange={(e) => updateCustomDay(dayKey, 'customEnd', e.target.value)} className="h-5 text-[10px] px-0.5 w-full rounded" placeholder="End" />
+                          <div className="flex gap-1 mt-2 items-center text-[10px] text-muted-foreground">
+                            <Input type="time" value={day.customStart} onChange={(e) => updateCustomDay(dayKey, 'customStart', e.target.value)} className="h-5 text-[10px] px-0.5 w-full rounded time-no-indicator" placeholder="Start" />
+                            <Input type="time" value={day.customEnd} onChange={(e) => updateCustomDay(dayKey, 'customEnd', e.target.value)} className="h-5 text-[10px] px-0.5 w-full rounded time-no-indicator" placeholder="End" />
+                            <Clock className="h-3 w-3 text-muted-foreground shrink-0" />
                           </div>
                         </div>
                       )}
