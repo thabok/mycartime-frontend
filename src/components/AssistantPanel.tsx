@@ -25,6 +25,8 @@ interface AssistantPanelProps {
   onClear: () => void;
   isSending: boolean;
   streamingReply: string;
+  thinkingText: string;
+  toolActivity: string[];
   width: number;
   onWidthChange: (width: number) => void;
   onClose: () => void;
@@ -40,6 +42,8 @@ export function AssistantPanel({
   onClear,
   isSending,
   streamingReply,
+  thinkingText,
+  toolActivity,
   width,
   onWidthChange,
   onClose,
@@ -203,6 +207,19 @@ export function AssistantPanel({
                 {streamingReply ? (
                   <div className="prose prose-chat prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-pre:my-1 prose-headings:my-1.5 dark:prose-invert">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{streamingReply}</ReactMarkdown>
+                  </div>
+                ) : toolActivity.length > 0 || thinkingText ? (
+                  <div className="space-y-1">
+                    {toolActivity.map((name, idx) => (
+                      <p key={idx} className="text-xs text-muted-foreground italic">
+                        Using tool: {name}…
+                      </p>
+                    ))}
+                    {thinkingText && (
+                      <p className="text-xs text-muted-foreground italic line-clamp-2">
+                        {thinkingText.slice(-200)}
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <span className="text-muted-foreground">Thinking…</span>

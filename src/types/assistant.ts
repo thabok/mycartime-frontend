@@ -14,6 +14,8 @@ export interface ChatMessage {
 
 export type AssistantStreamEvent =
   | { type: 'delta'; text: string }
+  | { type: 'thinking_delta'; text: string }
+  | { type: 'tool_call'; name: string }
   | { type: 'final'; reply: string; actions: AssistantAction[] }
   | { type: 'error'; message: string };
 

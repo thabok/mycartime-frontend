@@ -76,6 +76,8 @@ const Index = () => {
           onClear={assistant.clearMessages}
           isSending={assistant.isSending}
           streamingReply={assistant.streamingReply}
+          thinkingText={assistant.thinkingText}
+          toolActivity={assistant.toolActivity}
           width={assistant.width}
           onWidthChange={assistant.setWidth}
           onClose={() => assistant.setIsOpen(false)}

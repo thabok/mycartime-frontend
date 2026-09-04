@@ -65,6 +65,8 @@ export function useAssistant({ members, onMembersChange, plan, onPlanChange }: U
   const [width, setWidth] = useLocalStorage('carpool-assistant-width', 420);
   const [isSending, setIsSending] = useState(false);
   const [streamingReply, setStreamingReply] = useState('');
+  const [thinkingText, setThinkingText] = useState('');
+  const [toolActivity, setToolActivity] = useState<string[]>([]);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -76,6 +78,8 @@ export function useAssistant({ members, onMembersChange, plan, onPlanChange }: U
     const history = [...messages, userMessage];
     setMessages(history);
     setStreamingReply('');
+    setThinkingText('');
+    setToolActivity([]);
     setIsSending(true);
 
     try {
@@ -107,6 +111,8 @@ export function useAssistant({ members, onMembersChange, plan, onPlanChange }: U
         if (!line.trim()) return;
         const event: AssistantStreamEvent = JSON.parse(line);
         if (event.type === 'delta') setStreamingReply(prev => prev + event.text);
+        else if (event.type === 'thinking_delta') setThinkingText(prev => prev + event.text);
+        else if (event.type === 'tool_call') setToolActivity(prev => [...prev, event.name]);
         else if (event.type === 'final') data = event;
         else if (event.type === 'error') throw new Error(event.message);
       };
@@ -239,6 +245,8 @@ export function useAssistant({ members, onMembersChange, plan, onPlanChange }: U
       setMessages([...history, errorMessage]);
     } finally {
       setStreamingReply('');
+      setThinkingText('');
+      setToolActivity([]);
       setIsSending(false);
     }
   }, [messages, members, plan, isSending, location, navigate, onMembersChange, onPlanChange, setMessages]);
@@ -262,6 +270,8 @@ export function useAssistant({ members, onMembersChange, plan, onPlanChange }: U
     clearMessages,
     isSending,
     streamingReply,
+    thinkingText,
+    toolActivity,
     isOpen,
     setIsOpen,
     width,
