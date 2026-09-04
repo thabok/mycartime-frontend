@@ -29,24 +29,24 @@ export function MemberListItem({ member, onEdit, onEditCustom, onDelete }: Membe
       </div>
       
       <div className="flex items-center gap-3 text-sm text-muted-foreground">
+        {member.isPartTime && (
+          <div className="flex items-center gap-1">
+            <Clock className="h-3 w-3 mr-1" />
+            PT
+          </div>
+        )}
+        
+        {hasCustomDays && (
+          <div className="flex items-center gap-1">
+            <Settings className="h-3 w-3 mr-1" />
+            {Object.keys(member.customDays!).length}
+          </div>
+        )}
+
         <div className="flex items-center gap-1">
           <Car className="h-3.5 w-3.5" />
           <span>{member.numberOfSeats}</span>
         </div>
-        
-        {member.isPartTime && (
-          <Badge variant="secondary" className="text-xs">
-            <Clock className="h-3 w-3 mr-1" />
-            PT
-          </Badge>
-        )}
-        
-        {hasCustomDays && (
-          <Badge variant="outline" className="text-xs">
-            <Settings className="h-3 w-3 mr-1" />
-            {Object.keys(member.customDays!).length}
-          </Badge>
-        )}
       </div>
       
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

@@ -50,7 +50,12 @@ export function cleanImportedMembers(imported: Member[]): Member[] {
 }
 
 export function parseImportedMembers(text: string): Member[] {
-  const imported = JSON.parse(text) as Member[];
-  if (!Array.isArray(imported)) throw new Error('Invalid format');
-  return cleanImportedMembers(imported);
+  const imported = JSON.parse(text);
+  if (!Array.isArray(imported)) {
+    if (imported && typeof imported === 'object' && 'summary' in imported && 'dayPlans' in imported) {
+      throw new Error('This looks like a driving plan file, not a members file.');
+    }
+    throw new Error('Invalid format');
+  }
+  return cleanImportedMembers(imported as Member[]);
 }

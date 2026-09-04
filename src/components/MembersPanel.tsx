@@ -32,10 +32,12 @@ import {
   Upload,
   ListChecks,
   Users,
-  CalendarDays
+  CalendarDays,
+  Trash2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { parseImportedMembers } from '@/lib/memberImport';
+import { cn } from '@/lib/utils';
 
 const WEEKDAY_LABELS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
@@ -141,6 +143,7 @@ export function MembersPanel({ members, onMembersChange, hasPlan, onNavigateToPl
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [deletingMember, setDeletingMember] = useState<Member | null>(null);
   const [dialogInitialTab, setDialogInitialTab] = useState<'basic' | 'custom'>('basic');
+  const [clearAllOpen, setClearAllOpen] = useState(false);
   const { toast } = useToast();
 
 // Utility function to sort members alphabetically
@@ -224,6 +227,12 @@ const sortMembers = (membersList: Member[]) => {
     }
   };
 
+  const confirmClearAll = () => {
+    onMembersChange([]);
+    toast({ title: 'Members cleared', description: 'All members have been removed.' });
+    setClearAllOpen(false);
+  };
+
   const handleExport = () => {
     const data = JSON.stringify(members, null, 2);
     const blob = new Blob([data], { type: 'application/json' });
@@ -249,9 +258,12 @@ const sortMembers = (membersList: Member[]) => {
         onMembersChange(sortMembers(cleanedMembers));
         toast({ title: 'Imported', description: `${cleanedMembers.length} members imported.` });
       } catch (err) {
-        toast({ 
-          title: 'Import failed', 
-          description: 'The file could not be parsed. Please check the format.',
+        const description = err instanceof Error && err.message.startsWith('This looks like')
+          ? err.message
+          : 'The file could not be parsed. Please check the format.';
+        toast({
+          title: 'Import failed',
+          description,
           variant: 'destructive'
         });
       }
@@ -262,7 +274,7 @@ const sortMembers = (membersList: Member[]) => {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <div className="relative flex-1 max-w-md">
+        <div className="relative flex-1 max-w-[22.4rem]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search members..."
@@ -272,37 +284,55 @@ const sortMembers = (membersList: Member[]) => {
             className="pl-10"
           />
         </div>
-        
+
         <div className="flex items-center gap-2">
-          <div className="flex items-center bg-muted/50 rounded-lg p-1">
+          <div className="flex items-center h-10 bg-muted/50 rounded-lg p-1">
             <Button
-              variant={viewMode === 'card' ? 'secondary' : 'ghost'}
+              variant="ghost"
               size="icon"
               onClick={() => setViewMode('card')}
-              className="h-8 w-8"
+              aria-pressed={viewMode === 'card'}
+              aria-label="Card view"
+              title="Card view"
+              className={cn(
+                'h-8 w-8',
+                viewMode === 'card'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground',
+              )}
             >
               <LayoutGrid className="h-4 w-4" />
             </Button>
             <Button
-              variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+              variant="ghost"
               size="icon"
               onClick={() => setViewMode('list')}
-              className="h-8 w-8"
+              aria-pressed={viewMode === 'list'}
+              aria-label="List view"
+              title="List view"
+              className={cn(
+                'h-8 w-8',
+                viewMode === 'list'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground',
+              )}
             >
               <List className="h-4 w-4" />
             </Button>
           </div>
-          
+          <Button variant="outline" size="icon" onClick={() => setCustomPrefsOpen(true)} aria-label="Custom Prefs Overview" title="Custom Prefs Overview">
+            <ListChecks className="h-4 w-4" />
+          </Button>
           <Button variant="outline" size="icon" onClick={handleImport} aria-label="Import" title="Import">
             <Upload className="h-4 w-4" />
           </Button>
           <Button variant="outline" size="icon" onClick={handleExport} disabled={members.length === 0} aria-label="Export" title="Export">
             <Download className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setCustomPrefsOpen(true)}>
-            <ListChecks className="h-4 w-4 mr-2" />
-            Custom Prefs
+          <Button variant="outline" size="icon" onClick={() => setClearAllOpen(true)} disabled={members.length === 0} aria-label="Clear members" title="Clear members">
+            <Trash2 className="h-4 w-4" />
           </Button>
+
           <Button onClick={handleAddMember}>
             <Plus className="h-4 w-4 mr-2" />
             Add Member
@@ -324,10 +354,16 @@ const sortMembers = (membersList: Member[]) => {
               : 'Try adjusting your search query.'}
           </p>
           {members.length === 0 && (
-            <Button onClick={handleAddMember} className="mt-4">
-              <Plus className="h-4 w-4 mr-2" />
-              Add First Member
-            </Button>
+            <div className="flex items-center gap-3 mt-4">
+              <Button variant="outline" onClick={handleAddMember}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add First Member
+              </Button>
+              <Button variant="outline" onClick={handleImport}>
+                <Upload className="h-4 w-4 mr-2" />
+                Import from JSON
+              </Button>
+            </div>
           )}
         </div>
       ) : viewMode === 'card' ? (
@@ -418,6 +454,23 @@ const sortMembers = (membersList: Member[]) => {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={clearAllOpen} onOpenChange={setClearAllOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear all members?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove all {members.length} members from the carpool. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmClearAll} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Clear all
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

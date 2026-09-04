@@ -148,15 +148,21 @@ export function PlanControls({ members, plan, onPlanChange, onViewPlan, onRefere
       if (!file) return;
       try {
         const text = await file.text();
-        const imported = JSON.parse(text) as DrivingPlan;
+        const imported = JSON.parse(text);
+        if (Array.isArray(imported)) {
+          throw new Error('This looks like a members file, not a driving plan file.');
+        }
         if (!imported.summary || !imported.dayPlans) throw new Error('Invalid format');
-        onPlanChange(imported);
+        onPlanChange(imported as DrivingPlan);
         onViewPlan();
         toast({ title: 'Plan loaded', description: 'Driving plan imported successfully.' });
       } catch (err) {
-        toast({ 
-          title: 'Import failed', 
-          description: 'The file could not be parsed. Please check the format.',
+        const description = err instanceof Error && err.message.startsWith('This looks like')
+          ? err.message
+          : 'The file could not be parsed. Please check the format.';
+        toast({
+          title: 'Import failed',
+          description,
           variant: 'destructive'
         });
       }
