@@ -28,7 +28,7 @@ interface FeedbackDraft {
   label: FeedbackLabel;
 }
 
-const EMPTY_DRAFT: FeedbackDraft = { title: '', description: '', label: 'bug' };
+const EMPTY_DRAFT: FeedbackDraft = { title: '', description: '', label: 'enhancement' };
 
 const OPEN_ISSUES_URL =
   'https://github.com/thabok/mycartime/issues?q=is%3Aissue%20label%3A%22user%20feedback%22%20state%3Aopen';
@@ -83,7 +83,8 @@ export function FeedbackDialog({ open, onOpenChange }: FeedbackDialogProps) {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to submit feedback');
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error || 'Failed to submit feedback');
       }
 
       setDraft(EMPTY_DRAFT);
@@ -108,7 +109,7 @@ export function FeedbackDialog({ open, onOpenChange }: FeedbackDialogProps) {
     } catch (error) {
       toast({
         title: 'Could not send feedback',
-        description: 'Please try again later.',
+        description: error instanceof Error ? error.message : 'Please try again later.',
         variant: 'destructive',
       });
     } finally {

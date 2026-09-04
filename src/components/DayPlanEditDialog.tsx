@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, ArrowRight, Flag, Search, Trash2, UserRoundX, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { canApplyTransfers } from '@/lib/dayPlanActions';
 
 interface Transfer {
   id: string;
@@ -240,6 +241,14 @@ export function DayPlanEditDialog({
     setTransfers(prev => prev.filter(t => t.id !== id));
   };
 
+  // Checked against the net effect of all pending transfers, not one at a
+  // time, so a swap that only overfills a car partway through can still be
+  // staged and applied as a batch.
+  const capacityExceeded = useMemo(() => {
+    if (!dayPlan || transfers.length === 0) return false;
+    return !canApplyTransfers(dayPlan, transfers, members);
+  }, [dayPlan, transfers, members]);
+
   const handleCancelPassengerSelection = () => {
     setSelectedPassenger(null);
     setTargetSearch('');
@@ -247,7 +256,7 @@ export function DayPlanEditDialog({
   };
 
   const handleApply = () => {
-    if (!dayPlan || transfers.length === 0) return;
+    if (!dayPlan || transfers.length === 0 || capacityExceeded) return;
     onApplyTransfers(dayPlan, transfers);
     handleOpenChange(false);
   };
@@ -371,6 +380,12 @@ export function DayPlanEditDialog({
                     </div>
                   ))}
                 </div>
+                {capacityExceeded && (
+                  <div className="p-3 rounded-md bg-muted/50 border border-border/50 text-sm text-muted-foreground">
+                    <AlertTriangle className="h-4 w-4 inline-block mr-2 text-yellow-500" />
+                    One of these transfers would leave a car with more passengers than it has seats for. Remove a transfer to fix this.
+                  </div>
+                )}
               </div>
             )}
 
@@ -503,7 +518,7 @@ export function DayPlanEditDialog({
           </Button>
           <Button
             onClick={handleApply}
-            disabled={transfers.length === 0}
+            disabled={transfers.length === 0 || capacityExceeded}
           >
             Apply {transfers.length > 0 && `(${transfers.length})`}
           </Button>

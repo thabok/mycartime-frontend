@@ -37,7 +37,8 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { parseImportedMembers } from '@/lib/memberImport';
-import { cn } from '@/lib/utils';
+import { applyCreateMember, applyDeleteMember, applyImportMembers, applyUpdateMember } from '@/lib/memberActions';
+import { cn, downloadJson } from '@/lib/utils';
 
 const WEEKDAY_LABELS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
@@ -146,15 +147,6 @@ export function MembersPanel({ members, onMembersChange, hasPlan, onNavigateToPl
   const [clearAllOpen, setClearAllOpen] = useState(false);
   const { toast } = useToast();
 
-// Utility function to sort members alphabetically
-const sortMembers = (membersList: Member[]) => {
-    return [...membersList].sort((a, b) => {
-        const lastNameCompare = a.lastName.localeCompare(b.lastName);
-        if (lastNameCompare !== 0) return lastNameCompare;
-        return a.firstName.localeCompare(b.firstName);
-    });
-};
-
   const filteredMembers = useMemo(() => {
     if (!searchQuery.trim()) return members;
     const q = searchQuery.toLowerCase();
@@ -196,21 +188,18 @@ const sortMembers = (membersList: Member[]) => {
 
   const handleSaveMember = (member: Member) => {
     if (editingMember) {
-      const updatedMembers = members.map(m => 
-        m.initials === editingMember.initials ? member : m
-      );
-      onMembersChange(sortMembers(updatedMembers));
+      onMembersChange(applyUpdateMember(members, editingMember.initials, member));
       toast({ title: 'Member updated', description: `${member.firstName} ${member.lastName} has been updated.` });
     } else {
       if (members.some(m => m.initials === member.initials)) {
-        toast({ 
-          title: 'Duplicate initials', 
+        toast({
+          title: 'Duplicate initials',
           description: 'A member with these initials already exists.',
           variant: 'destructive'
         });
         return;
       }
-      onMembersChange(sortMembers([...members, member]));
+      onMembersChange(applyCreateMember(members, member));
       toast({ title: 'Member added', description: `${member.firstName} ${member.lastName} has been added.` });
     }
   };
@@ -221,7 +210,7 @@ const sortMembers = (membersList: Member[]) => {
 
   const confirmDelete = () => {
     if (deletingMember) {
-      onMembersChange(members.filter(m => m.initials !== deletingMember.initials));
+      onMembersChange(applyDeleteMember(members, deletingMember.initials));
       toast({ title: 'Member removed', description: `${deletingMember.firstName} ${deletingMember.lastName} has been removed.` });
       setDeletingMember(null);
     }
@@ -234,14 +223,7 @@ const sortMembers = (membersList: Member[]) => {
   };
 
   const handleExport = () => {
-    const data = JSON.stringify(members, null, 2);
-    const blob = new Blob([data], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'carpool-members.json';
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadJson('carpool-members.json', members);
     toast({ title: 'Exported', description: `${members.length} members exported to JSON.` });
   };
 
@@ -255,7 +237,7 @@ const sortMembers = (membersList: Member[]) => {
       try {
         const text = await file.text();
         const cleanedMembers = parseImportedMembers(text);
-        onMembersChange(sortMembers(cleanedMembers));
+        onMembersChange(applyImportMembers(members, cleanedMembers));
         toast({ title: 'Imported', description: `${cleanedMembers.length} members imported.` });
       } catch (err) {
         const description = err instanceof Error && err.message.startsWith('This looks like')

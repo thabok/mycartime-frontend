@@ -144,6 +144,48 @@
   .time-no-indicator::-webkit-calendar-picker-indicator {
     display: none;
   }
+
+  /* Chat markdown on a solid primary-colored bubble: prose-invert assumes
+     a dark/black background and picks a muted gray palette that reads
+     poorly on our saturated green. Inherit color instead so every element
+     matches the bubble's own text-primary-foreground. */
+  .prose-on-primary {
+    --tw-prose-body: inherit;
+    --tw-prose-headings: inherit;
+    --tw-prose-lead: inherit;
+    --tw-prose-links: inherit;
+    --tw-prose-bold: inherit;
+    --tw-prose-counters: inherit;
+    --tw-prose-bullets: inherit;
+    --tw-prose-hr: inherit;
+    --tw-prose-quotes: inherit;
+    --tw-prose-quote-borders: inherit;
+    --tw-prose-captions: inherit;
+    --tw-prose-code: inherit;
+    --tw-prose-pre-code: inherit;
+    --tw-prose-pre-bg: rgb(255 255 255 / 0.1);
+    --tw-prose-th-borders: inherit;
+    --tw-prose-td-borders: inherit;
+  }
+
+  /* Inline code in chat replies: a plain badge instead of typography's
+     default backtick characters + bold weight. */
+  .prose-chat :where(code):not(:where(pre, pre *)) {
+    background-color: rgb(0 0 0 / 0.08);
+    border-radius: 0.25rem;
+    padding: 0.1em 0.4em;
+    font-weight: 400;
+  }
+  .prose-chat :where(code):not(:where(pre, pre *))::before,
+  .prose-chat :where(code):not(:where(pre, pre *))::after {
+    content: none;
+  }
+  .dark .prose-chat :where(code):not(:where(pre, pre *)) {
+    background-color: rgb(255 255 255 / 0.1);
+  }
+  .prose-chat.prose-on-primary :where(code):not(:where(pre, pre *)) {
+    background-color: rgb(255 255 255 / 0.18);
+  }
 }
 
 @layer utilities {

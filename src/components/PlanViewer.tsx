@@ -6,11 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Pencil, Users, FileText, Download, Trash2, Flag, UserRoundX, Clock } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, downloadJson } from '@/lib/utils';
 import { DayPlanEditDialog } from './DayPlanEditDialog';
 import { MemberDialog } from './MemberDialog';
 import { useToast } from '@/hooks/use-toast';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { applyTransfers, canApplyTransfers } from '@/lib/dayPlanActions';
 
 interface PlanViewerProps {
   plan: DrivingPlan;
@@ -360,15 +361,8 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
   };
 
   const handleExportPlan = () => {
-    const data = JSON.stringify(plan, null, 2);
-    const blob = new Blob([data], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
     const dateStr = referenceDate ? format(referenceDate, 'yyyy-MM-dd') : '';
-    a.download = dateStr ? `driving-plan-${dateStr}.json` : 'driving-plan.json';
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadJson(dateStr ? `driving-plan-${dateStr}.json` : 'driving-plan.json', plan);
     toast({ title: 'Exported', description: 'Driving plan exported to JSON.' });
   };
 
@@ -378,47 +372,8 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
   };
 
   const handleApplyTransfers = (dayPlan: DayPlan, transfers: Transfer[]) => {
-    const dayKey = Object.entries(plan.dayPlans).find(
-      ([_, dp]) => dp.dayOfWeekABCombo.uniqueNumber === dayPlan.dayOfWeekABCombo.uniqueNumber
-    )?.[0];
-
-    if (!dayKey) return;
-
-    const updatedParties = [...dayPlan.parties].map(party => ({
-      ...party,
-      passengers: [...party.passengers],
-    }));
-
-    transfers.forEach(transfer => {
-      // Find source party and remove passenger
-      const sourceParty = updatedParties.find(
-        p => p.driver === transfer.fromParty.driver && p.time === transfer.fromParty.time
-      );
-      if (sourceParty) {
-        sourceParty.passengers = sourceParty.passengers.filter(p => p !== transfer.passenger);
-      }
-
-      // Find target party and add passenger
-      const targetParty = updatedParties.find(
-        p => p.driver === transfer.toParty.driver && p.time === transfer.toParty.time
-      );
-      if (targetParty) {
-        targetParty.passengers.push(transfer.passenger);
-      }
-    });
-
-    const updatedPlan: DrivingPlan = {
-      ...plan,
-      dayPlans: {
-        ...plan.dayPlans,
-        [dayKey]: {
-          ...dayPlan,
-          parties: updatedParties,
-        },
-      },
-    };
-
-    onPlanChange(updatedPlan);
+    if (!canApplyTransfers(dayPlan, transfers, members)) return;
+    onPlanChange(applyTransfers(plan, dayPlan.dayOfWeekABCombo.uniqueNumber, transfers));
   };
 
   const renderPartyLine = (party: Party, dayPlan: DayPlan, filterQuery: string, isLast: boolean) => {
