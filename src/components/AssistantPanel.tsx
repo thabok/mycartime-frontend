@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { X, Send, Undo2, Redo2, Bot, Maximize2, Minimize2, Loader2, Settings, Trash } from 'lucide-react';
+import { X, Send, Undo2, Redo2, Bot, Maximize2, Minimize2, Settings, Trash } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { StatusIndicator } from '@/components/StatusIndicator';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -293,9 +294,8 @@ export function AssistantPanel({
                 </div>
               ))}
               <div className="flex justify-start">
-                <div className="max-w-[90%] rounded-lg px-3 py-2 text-sm bg-muted text-foreground flex items-center gap-2">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground flex-shrink-0" />
-                  <span className="text-muted-foreground">{statusMessage || 'Thinking…'}</span>
+                <div className="max-w-[90%] rounded-lg px-3 py-2 text-sm bg-muted text-foreground">
+                  <StatusIndicator text={statusMessage} />
                 </div>
               </div>
             </>

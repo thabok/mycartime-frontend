@@ -378,7 +378,6 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
 
   const handleDiscardPlan = () => {
     onPlanChange(null);
-    toast({ title: 'Plan discarded', description: 'You can now generate a new plan.' });
   };
 
   const handleApplyTransfers = (dayPlan: DayPlan, transfers: Transfer[]) => {
