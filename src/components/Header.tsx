@@ -35,7 +35,7 @@ export function Header({ viewMode, onViewModeChange, hasPlan }: HeaderProps) {
   };
 
   return (
-    <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
+    <header className="flex-shrink-0 border-b border-border bg-card/50 backdrop-blur-sm z-50">
       <div className="container mx-auto px-4 py-4 max-w-5xl">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">

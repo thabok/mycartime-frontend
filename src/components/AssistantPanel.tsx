@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { X, Send, Undo2, Bot, Eraser } from 'lucide-react';
+import { X, Send, Undo2, Redo2, Bot, Maximize2, Minimize2, Loader2, Settings, Trash } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,18 +21,26 @@ import {
 import { cn } from '@/lib/utils';
 import { ChatMessage } from '@/types/assistant';
 
+export type AssistantDisplayMode = 'sidebar' | 'dialog';
+
 interface AssistantPanelProps {
   messages: ChatMessage[];
   onSend: (text: string) => void;
   onRevert: (messageId: string) => void;
+  onRedo: (messageId: string) => void;
   onClear: () => void;
   isSending: boolean;
   streamingReply: string;
   thinkingText: string;
   toolActivity: string[];
+  statusMessage: string;
   width: number;
   onWidthChange: (width: number) => void;
   onClose: () => void;
+  displayMode: AssistantDisplayMode;
+  onDisplayModeChange: (mode: AssistantDisplayMode) => void;
+  showThinkingMessages: boolean;
+  onShowThinkingMessagesChange: (show: boolean) => void;
 }
 
 const MIN_WIDTH = 300;
@@ -39,25 +50,36 @@ export function AssistantPanel({
   messages,
   onSend,
   onRevert,
+  onRedo,
   onClear,
   isSending,
   streamingReply,
   thinkingText,
   toolActivity,
+  statusMessage,
   width,
   onWidthChange,
   onClose,
+  displayMode,
+  onDisplayModeChange,
+  showThinkingMessages,
+  onShowThinkingMessagesChange,
 }: AssistantPanelProps) {
   const [draft, setDraft] = useState('');
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
-  const scrollEndRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const resizingRef = useRef(false);
   const hasScrolledOnOpenRef = useRef(false);
+  const isDialog = displayMode === 'dialog';
 
   useEffect(() => {
-    scrollEndRef.current?.scrollIntoView({ behavior: hasScrolledOnOpenRef.current ? 'smooth' : 'auto' });
+    // Scroll only the chat's own viewport, not `scrollIntoView`, which can
+    // also scroll ancestor containers (e.g. the main page behind a sidebar).
+    const viewport = scrollAreaRef.current?.querySelector<HTMLDivElement>('[data-radix-scroll-area-viewport]');
+    if (!viewport) return;
+    viewport.scrollTo({ top: viewport.scrollHeight, behavior: hasScrolledOnOpenRef.current ? 'smooth' : 'auto' });
     hasScrolledOnOpenRef.current = true;
-  }, [messages, isSending]);
+  }, [messages, isSending, thinkingText, toolActivity, streamingReply, statusMessage]);
 
   const handleClear = () => {
     onClear();
@@ -97,14 +119,19 @@ export function AssistantPanel({
 
   return (
     <div
-      className="relative flex-shrink-0 border-l border-border bg-card flex flex-col h-screen sticky top-0"
-      style={{ width }}
+      className={cn(
+        'relative flex flex-col bg-card',
+        isDialog ? 'h-full' : 'flex-shrink-0 border-l border-border h-full'
+      )}
+      style={isDialog ? undefined : { width }}
     >
-      <div
-        onMouseDown={handleResizeStart}
-        className="absolute left-0 top-0 h-full w-1.5 -translate-x-1/2 cursor-col-resize hover:bg-primary/30 active:bg-primary/50 transition-colors z-10"
-        title="Drag to resize"
-      />
+      {!isDialog && (
+        <div
+          onMouseDown={handleResizeStart}
+          className="absolute left-0 top-0 h-full w-1.5 -translate-x-1/2 cursor-col-resize hover:bg-primary/30 active:bg-primary/50 transition-colors z-10"
+          title="Drag to resize"
+        />
+      )}
 
       <div className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0">
         <div className="flex items-center gap-2">
@@ -112,6 +139,31 @@ export function AssistantPanel({
           <h2 className="font-semibold text-sm">Assistant</h2>
         </div>
         <div className="flex items-center gap-1">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                aria-label="Assistant settings"
+                title="Assistant settings"
+              >
+                <Settings className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-72 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <Label htmlFor="show-thinking-messages" className="text-sm font-normal">
+                  Show intermediate thinking messages
+                </Label>
+                <Switch
+                  id="show-thinking-messages"
+                  checked={showThinkingMessages}
+                  onCheckedChange={onShowThinkingMessagesChange}
+                />
+              </div>
+            </PopoverContent>
+          </Popover>
           <Button
             variant="ghost"
             size="icon"
@@ -121,7 +173,17 @@ export function AssistantPanel({
             aria-label="Clear chat history"
             title="Clear chat history"
           >
-            <Eraser className="h-4 w-4" />
+            <Trash className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => onDisplayModeChange(isDialog ? 'sidebar' : 'dialog')}
+            aria-label={isDialog ? 'Switch to sidebar' : 'Expand to dialog'}
+            title={isDialog ? 'Switch to sidebar' : 'Expand to dialog'}
+          >
+            {isDialog ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
           </Button>
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose} aria-label="Close assistant chat" title="Close">
             <X className="h-4 w-4" />
@@ -146,7 +208,7 @@ export function AssistantPanel({
         </AlertDialogContent>
       </AlertDialog>
 
-      <ScrollArea className="flex-1 min-h-0">
+      <ScrollArea ref={scrollAreaRef} className="flex-1 min-h-0">
         <div className="p-4 space-y-4">
           {messages.length === 0 && (
             <p className="text-sm text-muted-foreground">
@@ -179,7 +241,7 @@ export function AssistantPanel({
                           /^\[.+\]$/.test(line) && 'font-semibold text-foreground'
                         )}
                       >
-                        {line || ' '}
+                        {line || ' '}
                       </p>
                     ))}
                     {message.snapshot && !message.reverted && (
@@ -194,40 +256,59 @@ export function AssistantPanel({
                       </Button>
                     )}
                     {message.reverted && (
-                      <p className="text-xs text-muted-foreground italic">Reverted</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <p className="text-xs text-muted-foreground italic">Reverted</p>
+                        {message.redoSnapshot && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 gap-1.5 text-xs"
+                            onClick={() => onRedo(message.id)}
+                          >
+                            <Redo2 className="h-3 w-3" />
+                            Redo
+                          </Button>
+                        )}
+                      </div>
                     )}
                   </div>
                 )}
               </div>
             </div>
           ))}
-          {isSending && (
+          {isSending && !streamingReply && (
+            <>
+              {toolActivity.map((name, idx) => (
+                <div key={`tool-${idx}`} className="flex justify-start">
+                  <div className="max-w-[90%] rounded-lg px-3 py-2 text-sm bg-muted text-muted-foreground italic">
+                    Using tool: {name}…
+                  </div>
+                </div>
+              ))}
+              {showThinkingMessages && thinkingText.split('\n\n').map(s => s.trim()).filter(Boolean).map((segment, idx) => (
+                <div key={`thinking-${idx}`} className="flex justify-start">
+                  <div className="max-w-[90%] rounded-lg px-3 py-2 text-sm bg-muted text-muted-foreground italic whitespace-pre-wrap">
+                    {segment}
+                  </div>
+                </div>
+              ))}
+              <div className="flex justify-start">
+                <div className="max-w-[90%] rounded-lg px-3 py-2 text-sm bg-muted text-foreground flex items-center gap-2">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground flex-shrink-0" />
+                  <span className="text-muted-foreground">{statusMessage || 'Thinking…'}</span>
+                </div>
+              </div>
+            </>
+          )}
+          {isSending && streamingReply && (
             <div className="flex justify-start">
               <div className="max-w-[90%] rounded-lg px-3 py-2 text-sm bg-muted text-foreground">
-                {streamingReply ? (
-                  <div className="prose prose-chat prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-pre:my-1 prose-headings:my-1.5 dark:prose-invert">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{streamingReply}</ReactMarkdown>
-                  </div>
-                ) : toolActivity.length > 0 || thinkingText ? (
-                  <div className="space-y-1">
-                    {toolActivity.map((name, idx) => (
-                      <p key={idx} className="text-xs text-muted-foreground italic">
-                        Using tool: {name}…
-                      </p>
-                    ))}
-                    {thinkingText && (
-                      <p className="text-xs text-muted-foreground italic line-clamp-2">
-                        {thinkingText.slice(-200)}
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <span className="text-muted-foreground">Thinking…</span>
-                )}
+                <div className="prose prose-chat prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-pre:my-1 prose-headings:my-1.5 dark:prose-invert">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{streamingReply}</ReactMarkdown>
+                </div>
               </div>
             </div>
           )}
-          <div ref={scrollEndRef} />
         </div>
       </ScrollArea>
 

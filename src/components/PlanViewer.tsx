@@ -2,10 +2,11 @@ import { useState, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import { DrivingPlan, DayPlan, Party, Member } from '@/types/carpool';
+import { partyKey } from '@/lib/planDiff';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Pencil, Users, FileText, Download, Trash2, Flag, UserRoundX, Clock } from 'lucide-react';
+import { Pencil, Users, FileText, Download, Trash2, Flag, UserRoundX, Clock, X } from 'lucide-react';
 import { cn, downloadJson } from '@/lib/utils';
 import { DayPlanEditDialog } from './DayPlanEditDialog';
 import { MemberDialog } from './MemberDialog';
@@ -19,6 +20,15 @@ interface PlanViewerProps {
   members: Member[];
   onMembersChange: (members: Member[]) => void;
   referenceDate?: Date;
+  /**
+   * Keys (see `partyKey`) of parties that were just modified - via the Day
+   * Plan Editor, a direct API call, or the AI assistant - so they can be
+   * highlighted. Cleared by the parent on the next plan change, or manually
+   * via `onClearHighlights`.
+   */
+  modifiedPartyKeys?: Set<string>;
+  /** Clears `modifiedPartyKeys` in the parent. */
+  onClearHighlights?: () => void;
 }
 
 const DAY_NAMES: Record<string, string> = {
@@ -68,7 +78,7 @@ interface SelectedMemberInfo {
 type WeekFilter = 'summary' | 'all' | 'A' | 'B';
 const WEEK_FILTERS: WeekFilter[] = ['summary', 'all', 'A', 'B'];
 
-export function PlanViewer({ plan, onPlanChange, members, onMembersChange, referenceDate }: PlanViewerProps) {
+export function PlanViewer({ plan, onPlanChange, members, onMembersChange, referenceDate, modifiedPartyKeys, onClearHighlights }: PlanViewerProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
   const weekFilter: WeekFilter = WEEK_FILTERS.includes(tabParam as WeekFilter) ? (tabParam as WeekFilter) : 'summary';
@@ -376,7 +386,8 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
     onPlanChange(applyTransfers(plan, dayPlan.dayOfWeekABCombo.uniqueNumber, transfers));
   };
 
-  const renderPartyLine = (party: Party, dayPlan: DayPlan, filterQuery: string, isLast: boolean) => {
+  const renderPartyLine = (party: Party, dayPlan: DayPlan, dayKey: string, filterQuery: string, isLast: boolean) => {
+    const isModified = modifiedPartyKeys?.has(partyKey(dayKey, party)) ?? false;
     const query = filterQuery.trim().toLowerCase();
     const driverMember = membersByInitials.get(party.driver.toLowerCase());
     const isDriverHighlighted = query && (
@@ -410,9 +421,10 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
 
     return (
       <div key={`${party.driver}-${party.time}`} className={cn(
-        "text-sm leading-tight py-0.5 pl-[7ch]",
-        !isLast && "border-b border-border/30"
-      )} style={{ textIndent: '-7ch' }}>
+        "text-sm leading-tight py-0.5 pl-[7ch] transition-colors duration-700 rounded-sm",
+        !isLast && "border-b border-border/30",
+        isModified && "bg-warning/15"
+      )} style={{ textIndent: '-7ch' }} title={isModified ? 'Recently modified' : undefined}>
         <span className="text-muted-foreground font-mono">[{formatTime(party.time)}]</span>
         {' '}
         <button
@@ -482,7 +494,7 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
         <td className="py-1.5 px-4 align-top">
           {schoolboundParties.length > 0 ? (
             <div>
-              {schoolboundParties.map((party, idx) => renderPartyLine(party, dayPlan, personFilter, idx === schoolboundParties.length - 1))}
+              {schoolboundParties.map((party, idx) => renderPartyLine(party, dayPlan, dayKey, personFilter, idx === schoolboundParties.length - 1))}
             </div>
           ) : (
             <span className="text-muted-foreground text-sm">—</span>
@@ -491,7 +503,7 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
         <td className="py-1.5 px-4 align-top">
           {homeboundParties.length > 0 ? (
             <div>
-              {homeboundParties.map((party, idx) => renderPartyLine(party, dayPlan, personFilter, idx === homeboundParties.length - 1))}
+              {homeboundParties.map((party, idx) => renderPartyLine(party, dayPlan, dayKey, personFilter, idx === homeboundParties.length - 1))}
             </div>
           ) : (
             <span className="text-muted-foreground text-sm">—</span>
@@ -696,6 +708,15 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
               >
                 <UserRoundX className="h-3.5 w-3.5" /> solo driver (no passengers)
               </button>
+              {modifiedPartyKeys && modifiedPartyKeys.size > 0 && (
+                <button
+                  onClick={onClearHighlights}
+                  className="flex items-center gap-1 cursor-pointer transition-opacity hover:opacity-100"
+                  title="Clear modification highlights"
+                >
+                  <X className="h-3.5 w-3.5" /> clear modification highlights
+                </button>
+              )}
             </div>
           </TabsContent>
         ))}

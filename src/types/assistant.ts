@@ -10,6 +10,8 @@ export interface ChatMessage {
   reverted?: boolean;
   /** members/plan state right before this turn's actions were applied, kept for revert. */
   snapshot?: { members: Member[]; plan: DrivingPlan | null };
+  /** members/plan state right before a revert was applied, kept for redo. */
+  redoSnapshot?: { members: Member[]; plan: DrivingPlan | null };
 }
 
 export type AssistantStreamEvent =

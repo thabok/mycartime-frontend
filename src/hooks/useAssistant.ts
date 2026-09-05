@@ -1,7 +1,8 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { DayOfWeekABCombo, Member, DrivingPlan } from '@/types/carpool';
 import { AssistantAction, AssistantStreamEvent, ChatMessage } from '@/types/assistant';
+import { AssistantDisplayMode } from '@/components/AssistantPanel';
 import { useSessionStorage } from './useSessionStorage';
 import { useLocalStorage } from './useLocalStorage';
 import { applyCreateMember, applyDeleteMember, applyImportMembers, applyUpdateMember } from '@/lib/memberActions';
@@ -63,12 +64,33 @@ export function useAssistant({ members, onMembersChange, plan, onPlanChange }: U
   const [messages, setMessages] = useSessionStorage<ChatMessage[]>('carpool-assistant-messages', []);
   const [isOpen, setIsOpen] = useLocalStorage('carpool-assistant-open', false);
   const [width, setWidth] = useLocalStorage('carpool-assistant-width', 420);
+  const [displayMode, setDisplayMode] = useLocalStorage<AssistantDisplayMode>('carpool-assistant-display-mode', 'sidebar');
+  const [showThinkingMessages, setShowThinkingMessages] = useLocalStorage('carpool-assistant-show-thinking', false);
   const [isSending, setIsSending] = useState(false);
   const [streamingReply, setStreamingReply] = useState('');
   const [thinkingText, setThinkingText] = useState('');
   const [toolActivity, setToolActivity] = useState<string[]>([]);
+  const [statusMessage, setStatusMessage] = useState('');
+  const spinnerVerbsRef = useRef<string[]>([]);
+  const thinkingSegmentCountRef = useRef(0);
   const location = useLocation();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const backendHostAndPort = `http://${window.location.hostname}:1338`;
+    fetch(`${backendHostAndPort}/api/v1/assistant/spinner-verbs`)
+      .then(res => (res.ok ? res.json() : []))
+      .then((verbs: string[]) => {
+        spinnerVerbsRef.current = verbs;
+      })
+      .catch(() => {});
+  }, []);
+
+  const pickStatusMessage = useCallback(() => {
+    const verbs = spinnerVerbsRef.current;
+    if (verbs.length === 0) return;
+    setStatusMessage(verbs[Math.floor(Math.random() * verbs.length)]);
+  }, []);
 
   const sendMessage = useCallback(async (text: string) => {
     const trimmed = text.trim();
@@ -80,6 +102,8 @@ export function useAssistant({ members, onMembersChange, plan, onPlanChange }: U
     setStreamingReply('');
     setThinkingText('');
     setToolActivity([]);
+    thinkingSegmentCountRef.current = 0;
+    pickStatusMessage();
     setIsSending(true);
 
     try {
@@ -106,12 +130,21 @@ export function useAssistant({ members, onMembersChange, plan, onPlanChange }: U
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
+      let thinkingAccum = '';
 
       const handleLine = (line: string) => {
         if (!line.trim()) return;
         const event: AssistantStreamEvent = JSON.parse(line);
         if (event.type === 'delta') setStreamingReply(prev => prev + event.text);
-        else if (event.type === 'thinking_delta') setThinkingText(prev => prev + event.text);
+        else if (event.type === 'thinking_delta') {
+          thinkingAccum += event.text;
+          setThinkingText(thinkingAccum);
+          const segmentCount = thinkingAccum.split('\n\n').map(s => s.trim()).filter(Boolean).length;
+          if (segmentCount > thinkingSegmentCountRef.current) {
+            thinkingSegmentCountRef.current = segmentCount;
+            pickStatusMessage();
+          }
+        }
         else if (event.type === 'tool_call') setToolActivity(prev => [...prev, event.name]);
         else if (event.type === 'final') data = event;
         else if (event.type === 'error') throw new Error(event.message);
@@ -247,16 +280,26 @@ export function useAssistant({ members, onMembersChange, plan, onPlanChange }: U
       setStreamingReply('');
       setThinkingText('');
       setToolActivity([]);
+      setStatusMessage('');
       setIsSending(false);
     }
-  }, [messages, members, plan, isSending, location, navigate, onMembersChange, onPlanChange, setMessages]);
+  }, [messages, members, plan, isSending, location, navigate, onMembersChange, onPlanChange, setMessages, pickStatusMessage]);
 
   const revertTurn = useCallback((messageId: string) => {
     const message = messages.find(m => m.id === messageId);
     if (!message?.snapshot) return;
+    const redoSnapshot = { members, plan };
     onMembersChange(message.snapshot.members);
     onPlanChange(message.snapshot.plan);
-    setMessages(messages.map(m => (m.id === messageId ? { ...m, reverted: true } : m)));
+    setMessages(messages.map(m => (m.id === messageId ? { ...m, reverted: true, redoSnapshot } : m)));
+  }, [messages, members, plan, onMembersChange, onPlanChange, setMessages]);
+
+  const redoTurn = useCallback((messageId: string) => {
+    const message = messages.find(m => m.id === messageId);
+    if (!message?.reverted || !message.redoSnapshot) return;
+    onMembersChange(message.redoSnapshot.members);
+    onPlanChange(message.redoSnapshot.plan);
+    setMessages(messages.map(m => (m.id === messageId ? { ...m, reverted: false } : m)));
   }, [messages, onMembersChange, onPlanChange, setMessages]);
 
   const clearMessages = useCallback(() => {
@@ -267,14 +310,20 @@ export function useAssistant({ members, onMembersChange, plan, onPlanChange }: U
     messages,
     sendMessage,
     revertTurn,
+    redoTurn,
     clearMessages,
     isSending,
     streamingReply,
     thinkingText,
     toolActivity,
+    statusMessage,
     isOpen,
     setIsOpen,
     width,
     setWidth,
+    displayMode,
+    setDisplayMode,
+    showThinkingMessages,
+    setShowThinkingMessages,
   };
 }
