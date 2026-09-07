@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
-import { DrivingPlan, DayPlan, Party, Member } from '@/types/carpool';
+import { DrivingPlan, DayPlan, Party, Member, DayOfWeekABCombo } from '@/types/carpool';
 import { partyKey } from '@/lib/planDiff';
 import { DAY_NAMES, formatTime, buildMembersByInitials } from '@/lib/planFormat';
 import { getWeekMonday } from '@/lib/planDates';
@@ -128,6 +128,7 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
   const [editingDayPlan, setEditingDayPlan] = useState<DayPlan | null>(null);
   const [customDaysMember, setCustomDaysMember] = useState<Member | null>(null);
   const [customDaysDialogOpen, setMemberDialogOpen] = useState(false);
+  const [customDaysHighlightDay, setCustomDaysHighlightDay] = useState<DayOfWeekABCombo | null>(null);
   const [showDesignatedDriver, setShowDesignatedDriver] = useLocalStorage('carpool-show-designated-driver', false);
   const [showSoloDriver, setShowSoloDriver] = useLocalStorage('carpool-show-solo-driver', false);
   const { toast } = useToast();
@@ -144,10 +145,11 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
     return initials;
   }, [membersByInitials]);
 
-  const openCustomDays = (initials: string) => {
+  const openCustomDays = (initials: string, dayCombo?: DayOfWeekABCombo) => {
     const member = membersByInitials.get(initials.toLowerCase());
     if (!member) return;
     setCustomDaysMember(member);
+    setCustomDaysHighlightDay(dayCombo ?? null);
     setMemberDialogOpen(true);
   };
 
@@ -221,7 +223,7 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
             <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium">Member Details</p>
             <p className="text-lg font-semibold">
               <button
-                onClick={() => openCustomDays(member.initials)}
+                onClick={() => openCustomDays(member.initials, dayCombo)}
                 className="hover:text-primary hover:underline transition-colors"
                 title="Timetable"
               >
@@ -751,6 +753,8 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
         member={customDaysMember}
         onSave={handleSaveCustomDaysMember}
         initialTab="timetable"
+        referenceDate={referenceDate}
+        initialTimetableDay={customDaysHighlightDay ?? undefined}
       />
     </div>
   );

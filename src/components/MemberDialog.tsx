@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Clock } from 'lucide-react';
-import { Member, CustomDay } from '@/types/carpool';
+import { Member, CustomDay, DayOfWeekABCombo } from '@/types/carpool';
 import {
   Dialog,
   DialogContent,
@@ -23,6 +23,9 @@ interface MemberDialogProps {
   onSave: (member: Member) => void;
   initialTab?: 'basic' | 'custom' | 'timetable';
   referenceDate?: Date;
+  /** Pre-selects the week and highlights the day on the Timetable tab, e.g.
+   * when navigating here from a specific day's entry in the driving plan. */
+  initialTimetableDay?: DayOfWeekABCombo;
 }
 
 const WEEK_A_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
@@ -39,7 +42,7 @@ const createEmptyCustomDay = (): CustomDay => ({
   customEnd: '',
 });
 
-export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 'basic', referenceDate }: MemberDialogProps) {
+export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 'basic', referenceDate, initialTimetableDay }: MemberDialogProps) {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [initials, setInitials] = useState('');
@@ -154,7 +157,7 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
 
   const isFixedSizeTab = activeTab === 'custom' || activeTab === 'timetable';
   const dialogSizeClass = isFixedSizeTab
-    ? 'sm:max-w-4xl sm:h-[640px] sm:max-h-[85vh] flex flex-col'
+    ? 'sm:max-w-[76rem] sm:h-[820px] sm:max-h-[92vh] flex flex-col'
     : 'sm:max-w-lg';
 
   return (
@@ -364,7 +367,12 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
 
           {member && (
             <TabsContent value="timetable" className="mt-4 flex-1 min-h-0 overflow-y-auto">
-              <MemberTimetableView member={member} referenceDate={referenceDate} />
+              <MemberTimetableView
+                member={member}
+                referenceDate={referenceDate}
+                initialWeekA={initialTimetableDay?.isWeekA}
+                initialHighlightDay={initialTimetableDay?.dayOfWeek}
+              />
             </TabsContent>
           )}
         </Tabs>
