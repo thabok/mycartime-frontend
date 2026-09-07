@@ -5,6 +5,7 @@ import { AssistantAction, AssistantStreamEvent, ChatMessage } from '@/types/assi
 import { AssistantDisplayMode } from '@/components/AssistantPanel';
 import { useSessionStorage } from './useSessionStorage';
 import { useLocalStorage } from './useLocalStorage';
+import { useSpinnerVerbs } from './useSpinnerVerbs';
 import { applyCreateMember, applyDeleteMember, applyImportMembers, applyUpdateMember } from '@/lib/memberActions';
 import { applyTransfers, canTransferPassenger, findDayKeyByUniqueNumber } from '@/lib/dayPlanActions';
 import { downloadJson } from '@/lib/utils';
@@ -70,27 +71,10 @@ export function useAssistant({ members, onMembersChange, plan, onPlanChange }: U
   const [streamingReply, setStreamingReply] = useState('');
   const [thinkingText, setThinkingText] = useState('');
   const [toolActivity, setToolActivity] = useState<string[]>([]);
-  const [statusMessage, setStatusMessage] = useState('');
-  const spinnerVerbsRef = useRef<string[]>([]);
+  const { statusMessage, setStatusMessage, pickStatusMessage } = useSpinnerVerbs();
   const thinkingSegmentCountRef = useRef(0);
   const location = useLocation();
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const backendHostAndPort = `http://${window.location.hostname}:1338`;
-    fetch(`${backendHostAndPort}/api/v1/assistant/spinner-verbs`)
-      .then(res => (res.ok ? res.json() : []))
-      .then((verbs: string[]) => {
-        spinnerVerbsRef.current = verbs;
-      })
-      .catch(() => {});
-  }, []);
-
-  const pickStatusMessage = useCallback(() => {
-    const verbs = spinnerVerbsRef.current;
-    if (verbs.length === 0) return;
-    setStatusMessage(verbs[Math.floor(Math.random() * verbs.length)]);
-  }, []);
 
   const sendMessage = useCallback(async (text: string) => {
     const trimmed = text.trim();

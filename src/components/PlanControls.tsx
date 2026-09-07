@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useRef, useState, useEffect } from 'react';
 import { format, parseISO } from 'date-fns';
 import { Member, DrivingPlan } from '@/types/carpool';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,16 @@ import { useToast } from '@/hooks/use-toast';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
 import { refreshTimetableCache } from '@/lib/timetableCache';
+import { useSpinnerVerbs } from '@/hooks/useSpinnerVerbs';
+import { PlanGenerationDialog } from '@/components/PlanGenerationDialog';
+import { PlanGenerationState, PlanStreamEvent } from '@/types/planGeneration';
+
+const IDLE_GENERATION_STATE: PlanGenerationState = {
+  phaseMessage: 'Starting up',
+  metrics: null,
+  stats: null,
+  stopping: false,
+};
 
 interface PlanControlsProps {
   members: Member[];
@@ -43,6 +53,9 @@ export function PlanControls({ members, plan, onPlanChange, onViewPlan, onRefere
     return undefined;
   });
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generation, setGeneration] = useState<PlanGenerationState>(IDLE_GENERATION_STATE);
+  const jobIdRef = useRef<string | null>(null);
+  const { statusMessage, pickStatusMessage } = useSpinnerVerbs();
   const { toast } = useToast();
   const backendHostAndPort = "http://" + window.location.hostname + ":1338";
 
@@ -101,10 +114,31 @@ export function PlanControls({ members, plan, onPlanChange, onViewPlan, onRefere
     return parseInt(`${yyyy}${mm}${dd}`);
   };
 
+  const handleStopGeneration = useCallback(async () => {
+    const jobId = jobIdRef.current;
+    if (!jobId) return;
+    setGeneration(prev => ({ ...prev, stopping: true, phaseMessage: 'Wrapping up the best plan so far' }));
+    try {
+      await fetch(`${backendHostAndPort}/api/v1/drivingplan/stop`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId }),
+      });
+    } catch (error) {
+      // The job may have finished on its own between render and click; the
+      // stream will deliver the plan either way, so there is nothing to do.
+      console.error('Failed to stop plan generation:', error);
+    }
+  }, [backendHostAndPort]);
+
   const handleGenerate = async () => {
     if (!canGenerate || !referenceDate) return;
-    
+
     setIsGenerating(true);
+    setGeneration(IDLE_GENERATION_STATE);
+    jobIdRef.current = null;
+    pickStatusMessage();
+
     try {
       const hash = btoa(password);
       const payload = {
@@ -114,20 +148,78 @@ export function PlanControls({ members, plan, onPlanChange, onViewPlan, onRefere
         hash,
       };
 
-      const response = await fetch(`${backendHostAndPort}/api/v1/drivingplan`, {
+      // Streaming endpoint rather than /api/v1/drivingplan: the solver can run for
+      // minutes, so the UI follows its progress and can ask it to stop early.
+      const response = await fetch(`${backendHostAndPort}/api/v1/drivingplan/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
-      if (!response.ok) {
+      if (!response.ok || !response.body) {
         throw new Error(`Server responded with ${response.status}`);
       }
 
-      const generatedPlan = await response.json() as DrivingPlan;
+      let generatedPlan: DrivingPlan | null = null;
+      let solveStatus: PlanGenerationState['stats'] = null;
+      let streamError: string | null = null;
+
+      const handleEvent = (event: PlanStreamEvent) => {
+        switch (event.type) {
+          case 'job':
+            jobIdRef.current = event.jobId;
+            break;
+          case 'status':
+            setGeneration(prev => ({ ...prev, phaseMessage: event.message }));
+            break;
+          case 'progress':
+            setGeneration(prev => ({ ...prev, metrics: event.metrics }));
+            break;
+          case 'solved':
+            solveStatus = event.stats;
+            setGeneration(prev => ({
+              ...prev,
+              stats: event.stats,
+              phaseMessage: 'Building the plan',
+            }));
+            break;
+          case 'final':
+            generatedPlan = event.plan;
+            break;
+          case 'error':
+            streamError = event.message;
+            break;
+          case 'heartbeat':
+            break;
+        }
+      };
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+        for (const line of lines) {
+          if (line.trim()) handleEvent(JSON.parse(line) as PlanStreamEvent);
+        }
+      }
+      if (buffer.trim()) handleEvent(JSON.parse(buffer) as PlanStreamEvent);
+
+      if (streamError) throw new Error(streamError);
+      if (!generatedPlan) throw new Error('The server finished without returning a plan.');
+
       onPlanChange(generatedPlan);
       onViewPlan();
-      toast({ title: 'Plan generated!', description: 'Your driving plan has been created successfully.' });
+      toast({
+        title: 'Plan generated!',
+        description: solveStatus?.provenOptimal
+          ? 'This is the best possible plan for these schedules.'
+          : 'Your driving plan has been created successfully.',
+      });
 
       // Best-effort: refresh the per-member timetable detail cache now, while
       // the credentials are on hand, so the Timetable tab in Member details
@@ -137,13 +229,17 @@ export function PlanControls({ members, plan, onPlanChange, onViewPlan, onRefere
       });
     } catch (error) {
       console.error('Failed to generate plan:', error);
-      toast({ 
-        title: 'Generation failed', 
-        description: 'Could not connect to the backend service. Please check if it\'s running.',
+      toast({
+        title: 'Generation failed',
+        description: error instanceof Error && error.message
+          ? error.message
+          : 'Could not connect to the backend service. Please check if it\'s running.',
         variant: 'destructive'
       });
     } finally {
+      jobIdRef.current = null;
       setIsGenerating(false);
+      setGeneration(IDLE_GENERATION_STATE);
     }
   };
 
@@ -180,6 +276,14 @@ export function PlanControls({ members, plan, onPlanChange, onViewPlan, onRefere
 
   return (
     <div className="space-y-6 animate-fade-in">
+      <PlanGenerationDialog
+        open={isGenerating}
+        state={generation}
+        statusMessage={statusMessage}
+        onRequestNewVerb={pickStatusMessage}
+        onStop={handleStopGeneration}
+      />
+
       {/* Authentication Card */}
       <Card>
         <CardHeader className="pb-4">
