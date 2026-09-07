@@ -3,13 +3,16 @@ import { useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import { DrivingPlan, DayPlan, Party, Member } from '@/types/carpool';
 import { partyKey } from '@/lib/planDiff';
+import { DAY_NAMES, formatTime, buildMembersByInitials } from '@/lib/planFormat';
+import { getWeekMonday } from '@/lib/planDates';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Pencil, Users, FileText, Download, Trash2, Flag, UserRoundX, Clock, X } from 'lucide-react';
+import { Pencil, Users, FileText, Download, Image, Trash2, Flag, UserRoundX, Clock, X } from 'lucide-react';
 import { cn, downloadJson } from '@/lib/utils';
 import { DayPlanEditDialog } from './DayPlanEditDialog';
 import { MemberDialog } from './MemberDialog';
+import { WeekSeparator } from './WeekSeparator';
 import { useToast } from '@/hooks/use-toast';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { applyTransfers, canApplyTransfers } from '@/lib/dayPlanActions';
@@ -30,20 +33,6 @@ interface PlanViewerProps {
   /** Clears `modifiedPartyKeys` in the parent. */
   onClearHighlights?: () => void;
 }
-
-const DAY_NAMES: Record<string, string> = {
-  MONDAY: 'Monday',
-  TUESDAY: 'Tuesday',
-  WEDNESDAY: 'Wednesday',
-  THURSDAY: 'Thursday',
-  FRIDAY: 'Friday',
-};
-
-const formatTime = (time: number): string => {
-  const hours = Math.floor(time / 100);
-  const minutes = time % 100;
-  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-};
 
 const formatCreationPhase = (phase: number ): string => {
   let reason: string;
@@ -144,11 +133,7 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
   const { toast } = useToast();
 
   // Create lookup map: initials -> Member
-  const membersByInitials = useMemo(() => {
-    const map = new Map<string, Member>();
-    members.forEach(m => map.set(m.initials.toLowerCase(), m));
-    return map;
-  }, [members]);
+  const membersByInitials = useMemo(() => buildMembersByInitials(members), [members]);
 
   // Format initials as "FirstName (Initials)" with non-breaking space
   const formatPerson = useCallback((initials: string) => {
@@ -376,6 +361,44 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
     toast({ title: 'Exported', description: 'Driving plan exported to JSON.' });
   };
 
+  const handleExportPng = async () => {
+    toast({ title: 'Preparing PNGs', description: 'This can take a few seconds…' });
+    try {
+      const darkMode = JSON.parse(window.localStorage.getItem('carpool-theme-dark') || 'false');
+      const backendHostAndPort = "http://" + window.location.hostname + ":1338";
+      const response = await fetch(`${backendHostAndPort}/api/v1/export/png`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          members,
+          plan,
+          referenceDate: referenceDate ? format(referenceDate, 'yyyy-MM-dd') : null,
+          showDesignatedDriver,
+          showSoloDriver,
+          darkMode,
+        }),
+      });
+      if (!response.ok) throw new Error(`Export request failed with status ${response.status}`);
+      const blob = await response.blob();
+
+      // Both weeks are bundled into a single ZIP (rather than downloaded as
+      // two separate files) because browsers throttle/drop automatically
+      // triggered downloads fired back-to-back without a fresh user gesture.
+      const weekAMonday = referenceDate ? format(getWeekMonday(referenceDate, true), 'yyyy-MM-dd') : '';
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = weekAMonday ? `driving-plan-${weekAMonday}.zip` : 'driving-plan.zip';
+      a.click();
+      URL.revokeObjectURL(url);
+
+      toast({ title: 'Exported', description: 'Week A and Week B saved as a ZIP of PNGs.' });
+    } catch (err) {
+      console.error('Failed to export plan as PNG:', err);
+      toast({ title: 'Export failed', description: 'Could not generate the PNGs.', variant: 'destructive' });
+    }
+  };
+
   const handleDiscardPlan = () => {
     onPlanChange(null);
   };
@@ -558,6 +581,9 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
             <Button variant="outline" size="sm" onClick={handleExportPlan} className="h-9" title="Export JSON">
               <Download className="h-4 w-4" />
             </Button>
+            <Button variant="outline" size="sm" onClick={handleExportPng} className="h-9" title="Export Week A / Week B as PNG">
+              <Image className="h-4 w-4" />
+            </Button>
             <Button variant="outline" size="sm" onClick={handleDiscardPlan} className="h-9" title="Discard Plan">
               <Trash2 className="h-4 w-4" />
             </Button>
@@ -650,24 +676,14 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
                 </thead>
                 <tbody>
                   {filteredDayPlans.map(([dayKey, dayPlan], idx) => {
-                    const needsSeparator = tabValue === 'all' &&
-                      dayPlan.dayOfWeekABCombo.dayOfWeek === 'MONDAY';
+                    const needsSeparator = dayPlan.dayOfWeekABCombo.dayOfWeek === 'MONDAY';
 
                     return (
                       <>
                         {needsSeparator && (
                           <tr key={`separator-${dayKey}`}>
                             <td colSpan={4} className="py-0">
-                              <div className="relative">
-                                <div className="absolute inset-0 flex items-center px-4">
-                                  <div className="w-full border-t-2 border-primary/20" />
-                                </div>
-                                <div className="relative flex justify-center">
-                                  <span className="bg-background px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                    {dayPlan.dayOfWeekABCombo.isWeekA ? 'Week A' : 'Week B'}
-                                  </span>
-                                </div>
-                              </div>
+                              <WeekSeparator isWeekA={dayPlan.dayOfWeekABCombo.isWeekA} referenceDate={referenceDate} />
                             </td>
                           </tr>
                         )}

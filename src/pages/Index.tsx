@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { parseISO } from 'date-fns';
 import { Member, DrivingPlan, ViewMode } from '@/types/carpool';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useAssistant } from '@/hooks/useAssistant';
@@ -16,7 +17,18 @@ import { Toaster } from '@/components/ui/toaster';
 const Index = () => {
   const [members, setMembers] = useLocalStorage<Member[]>('carpool-members', []);
   const [plan, setPlan] = useLocalStorage<DrivingPlan | null>('carpool-plan', null);
-  const [referenceDate, setReferenceDate] = useState<Date | undefined>();
+  // Initialized from localStorage (rather than PlanControls' onReferenceDateChange
+  // callback alone) so the date survives a page reload once a plan already exists
+  // and PlanControls is no longer mounted to report it.
+  const [referenceDate, setReferenceDate] = useState<Date | undefined>(() => {
+    try {
+      const stored = window.localStorage.getItem('carpool-reference-date');
+      const dateString = stored ? JSON.parse(stored) as string | null : null;
+      return dateString ? parseISO(dateString) : undefined;
+    } catch {
+      return undefined;
+    }
+  });
   const [modifiedPartyKeys, setModifiedPartyKeys] = useState<Set<string>>(new Set());
   const location = useLocation();
   const navigate = useNavigate();
