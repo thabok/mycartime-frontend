@@ -127,7 +127,7 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingDayPlan, setEditingDayPlan] = useState<DayPlan | null>(null);
   const [customDaysMember, setCustomDaysMember] = useState<Member | null>(null);
-  const [customDaysDialogOpen, setCustomDaysDialogOpen] = useState(false);
+  const [customDaysDialogOpen, setMemberDialogOpen] = useState(false);
   const [showDesignatedDriver, setShowDesignatedDriver] = useLocalStorage('carpool-show-designated-driver', false);
   const [showSoloDriver, setShowSoloDriver] = useLocalStorage('carpool-show-solo-driver', false);
   const { toast } = useToast();
@@ -148,7 +148,7 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
     const member = membersByInitials.get(initials.toLowerCase());
     if (!member) return;
     setCustomDaysMember(member);
-    setCustomDaysDialogOpen(true);
+    setMemberDialogOpen(true);
   };
 
   const handleSaveCustomDaysMember = (updated: Member) => {
@@ -223,7 +223,7 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
               <button
                 onClick={() => openCustomDays(member.initials)}
                 className="hover:text-primary hover:underline transition-colors"
-                title="Custom preferences"
+                title="Timetable"
               >
                 {member.firstName} {member.lastName}
               </button>
@@ -640,7 +640,7 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
                               key={person.initials}
                               onClick={() => openCustomDays(person.initials)}
                               className="text-sm text-muted-foreground hover:font-bold cursor-pointer transition-all text-left inline-flex items-center gap-1"
-                              title="Custom preferences"
+                              title="Timetable"
                             >
                               <span>
                                 {person.name}
@@ -747,10 +747,10 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
 
       <MemberDialog
         open={customDaysDialogOpen}
-        onOpenChange={setCustomDaysDialogOpen}
+        onOpenChange={setMemberDialogOpen}
         member={customDaysMember}
         onSave={handleSaveCustomDaysMember}
-        initialTab="custom"
+        initialTab="timetable"
       />
     </div>
   );

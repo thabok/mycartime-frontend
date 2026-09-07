@@ -116,9 +116,10 @@ interface MembersPanelProps {
   onMembersChange: (members: Member[]) => void;
   hasPlan: boolean;
   onNavigateToPlan: () => void;
+  referenceDate?: Date;
 }
 
-export function MembersPanel({ members, onMembersChange, hasPlan, onNavigateToPlan }: MembersPanelProps) {
+export function MembersPanel({ members, onMembersChange, hasPlan, onNavigateToPlan, referenceDate }: MembersPanelProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const viewMode: MemberViewMode = searchParams.get('view') === 'list' ? 'list' : 'card';
   const searchQuery = searchParams.get('q') ?? '';
@@ -388,6 +389,7 @@ export function MembersPanel({ members, onMembersChange, hasPlan, onNavigateToPl
         member={editingMember}
         onSave={handleSaveMember}
         initialTab={dialogInitialTab}
+        referenceDate={referenceDate}
       />
 
       <Dialog open={customPrefsOpen} onOpenChange={setCustomPrefsOpen}>

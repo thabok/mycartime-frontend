@@ -97,6 +97,7 @@ const Index = () => {
                 onMembersChange={setMembers}
                 hasPlan={!!plan}
                 onNavigateToPlan={handleViewPlan}
+                referenceDate={referenceDate}
               />
             ) : plan ? (
               <PlanViewer

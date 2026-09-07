@@ -14,13 +14,15 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
+import { MemberTimetableView } from '@/components/MemberTimetableView';
 
 interface MemberDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   member?: Member | null;
   onSave: (member: Member) => void;
-  initialTab?: 'basic' | 'custom';
+  initialTab?: 'basic' | 'custom' | 'timetable';
+  referenceDate?: Date;
 }
 
 const WEEK_A_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
@@ -37,7 +39,7 @@ const createEmptyCustomDay = (): CustomDay => ({
   customEnd: '',
 });
 
-export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 'basic' }: MemberDialogProps) {
+export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 'basic', referenceDate }: MemberDialogProps) {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [initials, setInitials] = useState('');
@@ -150,27 +152,35 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
 
   const isValid = firstName.trim() && lastName.trim() && initials.trim() && numberOfSeats > 0;
 
-  const dialogWidth = activeTab === 'custom' ? 'sm:max-w-4xl' : 'sm:max-w-lg';
+  const isFixedSizeTab = activeTab === 'custom' || activeTab === 'timetable';
+  const dialogSizeClass = isFixedSizeTab
+    ? 'sm:max-w-4xl sm:h-[640px] sm:max-h-[85vh] flex flex-col'
+    : 'sm:max-w-lg';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={dialogWidth}>
-        <DialogHeader>
+      <DialogContent className={dialogSizeClass}>
+        <DialogHeader className={isFixedSizeTab ? 'shrink-0' : undefined}>
           <DialogTitle>
             {member
-              ? activeTab === 'custom'
-                ? `Edit Member: ${firstName} ${lastName}`
-                : 'Edit Member'
+              ? (activeTab === 'custom' || activeTab === 'timetable')
+                ? `Member details: ${firstName} ${lastName} (${initials})`
+                : 'Member details'
               : 'Add New Member'}
           </DialogTitle>
         </DialogHeader>
-        
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2">
+
+        <Tabs
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className={isFixedSizeTab ? 'flex-1 min-h-0 flex flex-col' : undefined}
+        >
+          <TabsList className={`grid w-full shrink-0 ${member ? 'grid-cols-3' : 'grid-cols-2'}`}>
             <TabsTrigger value="basic">Basic Info</TabsTrigger>
             <TabsTrigger value="custom">Custom Days</TabsTrigger>
+            {member && <TabsTrigger value="timetable">Timetable</TabsTrigger>}
           </TabsList>
-          
+
           <TabsContent value="basic" className="space-y-4 mt-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -230,7 +240,7 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
             </div>
           </TabsContent>
           
-          <TabsContent value="custom" className="mt-4 space-y-4">
+          <TabsContent value="custom" className="mt-4 space-y-4 flex-1 min-h-0 overflow-y-auto">
             {/* Week A Row */}
             <div>
               <h4 className="text-sm font-medium text-muted-foreground mb-2">Week A</h4>
@@ -351,29 +361,37 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
               </div>
             </div>
           </TabsContent>
-        </Tabs>
-        
-        <DialogFooter className="sm:justify-between">
-          {activeTab === 'custom' ? (
-            <Button
-              variant="outline"
-              onClick={() => setCustomDays({})}
-              disabled={Object.keys(customDays).length === 0}
-            >
-              Reset All
-            </Button>
-          ) : (
-            <div />
+
+          {member && (
+            <TabsContent value="timetable" className="mt-4 flex-1 min-h-0 overflow-y-auto">
+              <MemberTimetableView member={member} referenceDate={referenceDate} />
+            </TabsContent>
           )}
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave} disabled={!isValid}>
-              {member ? 'Update' : 'Add'} Member
-            </Button>
-          </div>
-        </DialogFooter>
+        </Tabs>
+
+        {activeTab !== 'timetable' && (
+          <DialogFooter className={`sm:justify-between ${isFixedSizeTab ? 'shrink-0' : ''}`}>
+            {activeTab === 'custom' ? (
+              <Button
+                variant="outline"
+                onClick={() => setCustomDays({})}
+                disabled={Object.keys(customDays).length === 0}
+              >
+                Reset All
+              </Button>
+            ) : (
+              <div />
+            )}
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSave} disabled={!isValid}>
+                {member ? 'Update' : 'Add'} Member
+              </Button>
+            </div>
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );

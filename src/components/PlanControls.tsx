@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
+import { refreshTimetableCache } from '@/lib/timetableCache';
 
 interface PlanControlsProps {
   members: Member[];
@@ -127,6 +128,13 @@ export function PlanControls({ members, plan, onPlanChange, onViewPlan, onRefere
       onPlanChange(generatedPlan);
       onViewPlan();
       toast({ title: 'Plan generated!', description: 'Your driving plan has been created successfully.' });
+
+      // Best-effort: refresh the per-member timetable detail cache now, while
+      // the credentials are on hand, so the Timetable tab in Member details
+      // can be viewed later without logging in again.
+      refreshTimetableCache(members, referenceDate, username.trim(), password).catch((err) => {
+        console.error('Failed to refresh timetable cache:', err);
+      });
     } catch (error) {
       console.error('Failed to generate plan:', error);
       toast({ 
