@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { Fragment, useState, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import { DrivingPlan, DayPlan, Party, Member, DayOfWeekABCombo } from '@/types/carpool';
@@ -684,7 +684,7 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
                     const needsSeparator = dayPlan.dayOfWeekABCombo.dayOfWeek === 'MONDAY';
 
                     return (
-                      <>
+                      <Fragment key={dayKey}>
                         {needsSeparator && (
                           <tr key={`separator-${dayKey}`}>
                             <td colSpan={4} className="py-0">
@@ -693,7 +693,7 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
                           </tr>
                         )}
                         {renderDayRow([dayKey, dayPlan])}
-                      </>
+                      </Fragment>
                     );
                   })}
                 </tbody>

@@ -10,15 +10,15 @@ import { PlanGenerationState, PlanSolutionMetrics } from '@/types/planGeneration
 /** How often a fresh spinning verb is shown, matching the assistant's pacing. */
 const VERB_ROTATE_MS = 6000;
 
-/**
- * How long the search has to go without improving before the countdown appears.
- * Short stalls are routine, so showing a bar for every one of them would just
- * flicker; the countdown is meant to explain an auto-stop that is actually near.
- */
-const COUNTDOWN_AFTER_SECONDS = 2;
-
 /** Frequent enough that the countdown bar drains smoothly rather than ticking. */
 const COUNTDOWN_TICK_MS = 100;
+
+/**
+ * How long the bar takes to glide back to full after an improvement resets it.
+ * Every improving solution restarts the countdown, which happens often, so the
+ * refill gets an eased glide instead of the snap a drain-paced transition gives.
+ */
+const COUNTDOWN_REFILL_MS = 600;
 
 interface PlanGenerationDialogProps {
   open: boolean;
@@ -154,9 +154,18 @@ export function PlanGenerationDialog({
     }
   }, [autoStopArmed, remainingSeconds, onStop, open]);
 
-  const showCountdown = autoStopArmed
-    && remainingSeconds !== null
-    && idleSeconds > COUNTDOWN_AFTER_SECONDS;
+  // The window is held open for the whole glide rather than a single frame: the
+  // bar keeps draining while it refills, and CSS retargets an in-flight
+  // transition from wherever the bar currently is, so the glide isn't cut short.
+  const [refilling, setRefilling] = useState(false);
+  useEffect(() => {
+    if (lastImprovementAt === null) return;
+    setRefilling(true);
+    const timer = setTimeout(() => setRefilling(false), COUNTDOWN_REFILL_MS);
+    return () => clearTimeout(timer);
+  }, [lastImprovementAt]);
+
+  const showCountdown = autoStopArmed && remainingSeconds !== null;
 
   return (
     <Dialog open={open}>
@@ -193,16 +202,18 @@ export function PlanGenerationDialog({
         {showCountdown && (
           <div className="space-y-1" aria-live="polite">
             <div className="flex items-baseline justify-between text-xs">
-              <span className="text-muted-foreground">No further improvements — stopping in</span>
+              <span className="text-muted-foreground">Stopping unless something improves in</span>
               <span className="font-semibold tabular-nums">
                 {(remainingSeconds as number).toFixed(1)}s
               </span>
             </div>
             <div className="h-1.5 overflow-hidden rounded-full bg-muted">
               <div
-                className="h-full rounded-full bg-primary transition-[width] duration-100 ease-linear"
+                className="h-full rounded-full bg-primary transition-[width]"
                 style={{
                   width: `${((remainingSeconds as number) / (noImprovementSeconds as number)) * 100}%`,
+                  transitionDuration: `${refilling ? COUNTDOWN_REFILL_MS : COUNTDOWN_TICK_MS}ms`,
+                  transitionTimingFunction: refilling ? 'cubic-bezier(0.22, 1, 0.36, 1)' : 'linear',
                 }}
               />
             </div>

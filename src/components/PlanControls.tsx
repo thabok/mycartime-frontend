@@ -55,7 +55,7 @@ export function PlanControls({ members, plan, onPlanChange, onViewPlan, onRefere
     return undefined;
   });
   const [isGenerating, setIsGenerating] = useState(false);
-  const [autoStopEnabled, setAutoStopEnabled] = useLocalStorage<boolean>('carpool-auto-stop', true);
+  const [autoStopEnabled, setAutoStopEnabled] = useLocalStorage<boolean>('carpool-auto-stop', false);
   const [generation, setGeneration] = useState<PlanGenerationState>(IDLE_GENERATION_STATE);
   const jobIdRef = useRef<string | null>(null);
   const { statusMessage, pickStatusMessage } = useSpinnerVerbs();
