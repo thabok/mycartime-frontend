@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { getBackendUrl } from '@/lib/config';
 
 /**
  * Whimsical status phrases shown while something slow is happening, shared by
@@ -10,7 +11,7 @@ export function useSpinnerVerbs() {
   const [statusMessage, setStatusMessage] = useState('');
 
   useEffect(() => {
-    const backendHostAndPort = `http://${window.location.hostname}:1338`;
+    const backendHostAndPort = getBackendUrl();
     fetch(`${backendHostAndPort}/api/v1/assistant/spinner-verbs`)
       .then(res => (res.ok ? res.json() : []))
       .then((verbs: string[]) => {

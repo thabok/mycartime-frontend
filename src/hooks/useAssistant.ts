@@ -9,6 +9,7 @@ import { useSpinnerVerbs } from './useSpinnerVerbs';
 import { applyCreateMember, applyDeleteMember, applyImportMembers, applyUpdateMember } from '@/lib/memberActions';
 import { applyTransfers, canTransferPassenger, findDayKeyByUniqueNumber } from '@/lib/dayPlanActions';
 import { downloadJson } from '@/lib/utils';
+import { getBackendUrl } from '@/lib/config';
 
 interface UseAssistantArgs {
   members: Member[];
@@ -91,7 +92,7 @@ export function useAssistant({ members, onMembersChange, plan, onPlanChange }: U
     setIsSending(true);
 
     try {
-      const backendHostAndPort = `http://${window.location.hostname}:1338`;
+      const backendHostAndPort = getBackendUrl();
       const response = await fetch(`${backendHostAndPort}/api/v1/assistant/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Pencil, Users, FileText, Download, Image, Trash2, Flag, UserRoundX, Clock, X } from 'lucide-react';
 import { cn, downloadJson } from '@/lib/utils';
+import { getBackendUrl } from '@/lib/config';
 import { DayPlanEditDialog } from './DayPlanEditDialog';
 import { MemberDialog } from './MemberDialog';
 import { WeekSeparator } from './WeekSeparator';
@@ -367,7 +368,7 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
     toast({ title: 'Preparing PNGs', description: 'This can take a few seconds…' });
     try {
       const darkMode = JSON.parse(window.localStorage.getItem('carpool-theme-dark') || 'false');
-      const backendHostAndPort = "http://" + window.location.hostname + ":1338";
+      const backendHostAndPort = getBackendUrl();
       const response = await fetch(`${backendHostAndPort}/api/v1/export/png`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

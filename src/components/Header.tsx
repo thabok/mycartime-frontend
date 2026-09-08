@@ -1,7 +1,8 @@
-import { Car, Users, CalendarDays, MessageSquare, Moon, Sun } from 'lucide-react';
+import { Car, Users, CalendarDays, MessageSquare, Moon, Settings, Sun } from 'lucide-react';
 import { ViewMode } from '@/types/carpool';
 import { Button } from '@/components/ui/button';
 import { FeedbackDialog } from '@/components/FeedbackDialog';
+import { PreferencesDialog } from '@/components/PreferencesDialog';
 import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
@@ -14,6 +15,7 @@ interface HeaderProps {
 
 export function Header({ viewMode, onViewModeChange, hasPlan }: HeaderProps) {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [preferencesOpen, setPreferencesOpen] = useState(false);
 
   // Theme is a personal preference, persisted in localStorage rather than the URL.
   const [isDark, setIsDark] = useLocalStorage(
@@ -66,6 +68,16 @@ export function Header({ viewMode, onViewModeChange, hasPlan }: HeaderProps) {
             <Button
               variant="ghost"
               size="sm"
+              onClick={() => setPreferencesOpen(true)}
+              className="h-9 w-9 p-0"
+              title="Preferences"
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setFeedbackOpen(true)}
               className="gap-2"
               title="Send feedback"
@@ -105,6 +117,7 @@ export function Header({ viewMode, onViewModeChange, hasPlan }: HeaderProps) {
       </div>
 
       <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
+      <PreferencesDialog open={preferencesOpen} onOpenChange={setPreferencesOpen} />
     </header>
   );
 }

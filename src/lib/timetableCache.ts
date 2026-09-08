@@ -1,4 +1,5 @@
 import { Member, MemberTimetableDetail } from '@/types/carpool';
+import { getBackendUrl } from '@/lib/config';
 
 const CACHE_KEY = 'carpool-timetable-cache';
 
@@ -52,7 +53,7 @@ export async function fetchMemberTimetableDetail(
   username: string,
   password: string,
 ): Promise<MemberTimetableDetail> {
-  const backendHostAndPort = 'http://' + window.location.hostname + ':1338';
+  const backendHostAndPort = getBackendUrl();
   const response = await fetch(`${backendHostAndPort}/api/v1/membertimetable`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useToast } from '@/hooks/use-toast';
+import { getBackendUrl } from '@/lib/config';
 
 interface FeedbackDialogProps {
   open: boolean;
@@ -46,7 +47,7 @@ export function FeedbackDialog({ open, onOpenChange }: FeedbackDialogProps) {
   const [label, setLabel] = useState<FeedbackLabel>('bug');
   const [isSending, setIsSending] = useState(false);
   const { toast } = useToast();
-  const backendHostAndPort = "http://" + window.location.hostname + ":1338";
+  const backendHostAndPort = getBackendUrl();
 
   // Reload the saved draft every time the dialog is (re-)opened.
   useEffect(() => {

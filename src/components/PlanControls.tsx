@@ -15,6 +15,7 @@ import {
   Lock
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getBackendUrl } from '@/lib/config';
 import { useToast } from '@/hooks/use-toast';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
@@ -57,7 +58,7 @@ export function PlanControls({ members, plan, onPlanChange, onViewPlan, onRefere
   const jobIdRef = useRef<string | null>(null);
   const { statusMessage, pickStatusMessage } = useSpinnerVerbs();
   const { toast } = useToast();
-  const backendHostAndPort = "http://" + window.location.hostname + ":1338";
+  const backendHostAndPort = getBackendUrl();
 
   // Sync referenceDate state to localStorage whenever it changes
   useEffect(() => {
