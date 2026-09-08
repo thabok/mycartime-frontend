@@ -29,6 +29,7 @@ const IDLE_GENERATION_STATE: PlanGenerationState = {
   metrics: null,
   stats: null,
   stopping: false,
+  noImprovementSeconds: null,
 };
 
 interface PlanControlsProps {
@@ -54,6 +55,7 @@ export function PlanControls({ members, plan, onPlanChange, onViewPlan, onRefere
     return undefined;
   });
   const [isGenerating, setIsGenerating] = useState(false);
+  const [autoStopEnabled, setAutoStopEnabled] = useLocalStorage<boolean>('carpool-auto-stop', true);
   const [generation, setGeneration] = useState<PlanGenerationState>(IDLE_GENERATION_STATE);
   const jobIdRef = useRef<string | null>(null);
   const { statusMessage, pickStatusMessage } = useSpinnerVerbs();
@@ -169,6 +171,10 @@ export function PlanControls({ members, plan, onPlanChange, onViewPlan, onRefere
         switch (event.type) {
           case 'job':
             jobIdRef.current = event.jobId;
+            setGeneration(prev => ({
+              ...prev,
+              noImprovementSeconds: event.noImprovementSeconds,
+            }));
             break;
           case 'status':
             setGeneration(prev => ({ ...prev, phaseMessage: event.message }));
@@ -283,6 +289,8 @@ export function PlanControls({ members, plan, onPlanChange, onViewPlan, onRefere
         statusMessage={statusMessage}
         onRequestNewVerb={pickStatusMessage}
         onStop={handleStopGeneration}
+        autoStopEnabled={autoStopEnabled}
+        onAutoStopEnabledChange={setAutoStopEnabled}
       />
 
       {/* Authentication Card */}

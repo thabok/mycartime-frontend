@@ -281,7 +281,9 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
           </div>
 
           <div className="space-y-1 pt-2">
-            <p className="font-medium">Party</p>
+            <p className="font-medium">
+              Party <span className="text-muted-foreground">({membersByInitials.get(selectedMember.party.driver.toLowerCase())?.numberOfSeats ?? 'unknown'} seats)</span>
+            </p>
             <p className="text-muted-foreground pl-3">
               [{formatTime(selectedMember.party.time)}] {renderPartyPerson(selectedMember.party.driver, true)}
               {selectedMember.party.passengers.length > 0 && (

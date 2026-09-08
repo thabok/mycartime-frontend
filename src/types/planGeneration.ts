@@ -8,7 +8,11 @@ import { DrivingPlan } from './carpool';
 export interface PlanSolutionMetrics {
   /** 1-based index of this solution in the solver's improving-solution sequence. */
   solutionCount: number;
-  /** Sum over members of the days they drive. */
+  /**
+   * Sum over members of the days they drive. Informational only - the solver
+   * does not try to reduce this, since driving below one's MAX_DRIVES is not an
+   * improvement.
+   */
   totalDrives: number;
   /** Days driven by the busiest single member. */
   maxDrives: number;
@@ -17,8 +21,19 @@ export interface PlanSolutionMetrics {
   numDrivingMoreThan6: number;
   /** Members driving more than their personal maximum (should normally be 0). */
   numOverMaxDrives: number;
-  /** Total cars on the road across the whole cycle (both directions). */
+  /** Total cars on the road across the whole cycle (both directions). Informational only. */
   driverLegs: number;
+  /**
+   * Weekdays a member drives in only one of the two weeks, summed over members.
+   * The solver's secondary goal: 0 means everyone drives the same weekdays in
+   * week A and week B.
+   */
+  weekABMismatches: number;
+  /**
+   * How far members' week A vs week B drive counts diverge, beyond the one day
+   * that an odd total makes unavoidable.
+   */
+  weekABCountImbalance: number;
   objective: number;
   bestObjectiveBound: number;
   elapsedSeconds: number;
@@ -37,7 +52,16 @@ export interface PlanSolveStats {
 
 /** One line of the NDJSON stream from POST /api/v1/drivingplan/stream. */
 export type PlanStreamEvent =
-  | { type: 'job'; jobId: string }
+  | {
+      type: 'job';
+      jobId: string;
+      /**
+       * Seconds without an improving solution after which the client should
+       * auto-stop. The backend reports it but does not enforce it, so the UI can
+       * count down to it and let the user switch it off mid-solve.
+       */
+      noImprovementSeconds: number;
+    }
   | { type: 'status'; phase: 'timetables' | 'solving' | 'fallback'; message: string }
   | { type: 'progress'; metrics: PlanSolutionMetrics }
   | { type: 'solved'; stats: PlanSolveStats }
@@ -54,4 +78,9 @@ export interface PlanGenerationState {
   stats: PlanSolveStats | null;
   /** True from the moment Stop was requested until the plan arrives. */
   stopping: boolean;
+  /**
+   * Seconds of no improvement before auto-stopping, as reported by the backend
+   * on the `job` event. Null until that event arrives.
+   */
+  noImprovementSeconds: number | null;
 }
