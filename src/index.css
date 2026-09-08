@@ -16,7 +16,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 215 25% 15%;
 
-    --primary: 160 84% 39%;
+    --primary: 160 60% 41%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 210 20% 94%;
@@ -28,12 +28,12 @@
     --accent: 156 73% 95%;
     --accent-foreground: 160 95% 24%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 0 58% 50%;
     --destructive-foreground: 0 0% 100%;
 
     --border: 210 20% 88%;
     --input: 210 20% 88%;
-    --ring: 160 84% 39%;
+    --ring: 160 60% 41%;
 
     --radius: 0.75rem;
 
@@ -44,7 +44,7 @@
     --warning-foreground: 38 92% 20%;
     
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(160 84% 39%) 0%, hsl(160 95% 30%) 100%);
+    --gradient-primary: linear-gradient(135deg, hsl(160 60% 41%) 0%, hsl(160 70% 28%) 100%);
     --gradient-surface: linear-gradient(180deg, hsl(210 20% 98%) 0%, hsl(210 15% 95%) 100%);
     --gradient-card: linear-gradient(145deg, hsl(0 0% 100%) 0%, hsl(210 20% 99%) 100%);
     
@@ -65,41 +65,41 @@
   }
 
   .dark {
-    --background: 220 18% 12%;
-    --foreground: 210 16% 92%;
+    --background: 0 0% 23%;
+    --foreground: 0 0% 92%;
 
-    --card: 220 16% 15%;
-    --card-foreground: 210 16% 92%;
+    --card: 0 0% 27%;
+    --card-foreground: 0 0% 92%;
 
-    --popover: 220 16% 15%;
-    --popover-foreground: 210 16% 92%;
+    --popover: 0 0% 27%;
+    --popover-foreground: 0 0% 92%;
 
     --primary: 168 50% 52%;
-    --primary-foreground: 220 30% 10%;
+    --primary-foreground: 0 0% 10%;
 
-    --secondary: 220 14% 20%;
-    --secondary-foreground: 210 16% 88%;
+    --secondary: 0 0% 30%;
+    --secondary-foreground: 0 0% 88%;
 
-    --muted: 220 14% 20%;
-    --muted-foreground: 215 10% 62%;
+    --muted: 0 0% 30%;
+    --muted-foreground: 0 0% 62%;
 
-    --accent: 170 28% 20%;
-    --accent-foreground: 165 40% 78%;
+    --accent: 0 0% 33%;
+    --accent-foreground: 0 0% 92%;
 
     --destructive: 0 55% 52%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 12% 24%;
-    --input: 220 12% 24%;
+    --border: 0 0% 33%;
+    --input: 0 0% 33%;
     --ring: 168 50% 52%;
 
-    --sidebar-background: 220 22% 10%;
-    --sidebar-foreground: 210 16% 90%;
+    --sidebar-background: 0 0% 20%;
+    --sidebar-foreground: 0 0% 90%;
     --sidebar-primary: 168 45% 55%;
-    --sidebar-primary-foreground: 220 30% 10%;
-    --sidebar-accent: 220 18% 16%;
-    --sidebar-accent-foreground: 210 16% 90%;
-    --sidebar-border: 220 14% 18%;
+    --sidebar-primary-foreground: 0 0% 10%;
+    --sidebar-accent: 0 0% 27%;
+    --sidebar-accent-foreground: 0 0% 90%;
+    --sidebar-border: 0 0% 25%;
     --sidebar-ring: 168 45% 55%;
 
     /* Softer gradient + glow tuned for the muted dark palette */
