@@ -191,7 +191,7 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
       <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(next) : requestClose())}>
         <DialogContent className="sm:max-w-2xl p-0 gap-0 overflow-hidden">
           <DialogHeader className="px-6 pt-6 pb-4">
-            <DialogTitle>Preferences</DialogTitle>
+            <DialogTitle>Settings</DialogTitle>
           </DialogHeader>
 
           {isLoading || !settings ? (

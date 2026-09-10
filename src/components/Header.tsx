@@ -70,7 +70,7 @@ export function Header({ viewMode, onViewModeChange, hasPlan }: HeaderProps) {
               size="sm"
               onClick={() => setPreferencesOpen(true)}
               className="h-9 w-9 p-0"
-              title="Preferences"
+              title="Configure Settings"
             >
               <Settings className="h-4 w-4" />
             </Button>
@@ -83,7 +83,6 @@ export function Header({ viewMode, onViewModeChange, hasPlan }: HeaderProps) {
               title="Send feedback"
             >
               <MessageSquare className="h-4 w-4" />
-              Feedback
             </Button>
 
             <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-xl">

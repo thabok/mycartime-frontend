@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Pencil, Users, FileText, Download, Image, Trash2, Flag, UserRoundX, Clock, X } from 'lucide-react';
 import { cn, downloadJson } from '@/lib/utils';
 import { getBackendUrl } from '@/lib/config';
+import { PlanQualityMetrics } from './PlanQualityMetrics';
 import { DayPlanEditDialog } from './DayPlanEditDialog';
 import { MemberDialog } from './MemberDialog';
 import { WeekSeparator } from './WeekSeparator';
@@ -664,6 +665,11 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
               </div>
             );
           })()}
+          {plan.qualityMetrics && (
+            <div className="mt-4">
+              <PlanQualityMetrics metrics={plan.qualityMetrics} />
+            </div>
+          )}
         </TabsContent>
 
         {['A', 'B', 'all'].map((tabValue) => (

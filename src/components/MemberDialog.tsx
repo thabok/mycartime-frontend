@@ -15,6 +15,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { MemberTimetableView } from '@/components/MemberTimetableView';
+import { getBackendUrl } from '@/lib/config';
 
 interface MemberDialogProps {
   open: boolean;
@@ -50,6 +51,23 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
   const [isPartTime, setIsPartTime] = useState(false);
   const [customDays, setCustomDays] = useState<Record<string, CustomDay>>({});
   const [activeTab, setActiveTab] = useState('basic');
+  const [maxDrivesFulltime, setMaxDrivesFulltime] = useState<number | null>(null);
+  const [maxDrivesParttime, setMaxDrivesParttime] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    fetch(`${getBackendUrl()}/api/v1/settings`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (data) {
+          setMaxDrivesFulltime(data.MAX_DRIVES_FULLTIME);
+          setMaxDrivesParttime(data.MAX_DRIVES_PARTTIME);
+        }
+      })
+      .catch(() => {
+        // Hint falls back to generic wording if settings can't be loaded.
+      });
+  }, [open]);
 
   useEffect(() => {
     if (member) {
@@ -191,7 +209,7 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
                 <Input
                   id="firstName"
                   value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
+                  onChange={(e) => setFirstName(e.target.value.trim())}
                   placeholder="John"
                 />
               </div>
@@ -200,7 +218,7 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
                 <Input
                   id="lastName"
                   value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
+                  onChange={(e) => setLastName(e.target.value.trim())}
                   placeholder="Smith"
                 />
               </div>
@@ -212,8 +230,11 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
                 <Input
                   id="initials"
                   value={initials}
-                  onChange={(e) => setInitials(e.target.value.toUpperCase())}
-                  placeholder="JS"
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setInitials(value.charAt(0).toUpperCase() + value.slice(1).toLowerCase());
+                  }}
+                  placeholder="Js"
                   maxLength={3}
                 />
               </div>
@@ -233,7 +254,7 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
             <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
               <div>
                 <Label htmlFor="partTime" className="text-sm font-medium">Part-time</Label>
-                <p className="text-xs text-muted-foreground">Member works part-time schedule</p>
+                <p className="text-xs text-muted-foreground">{isPartTime ? 'This member works a part-time schedule.' : 'This member works a full-time schedule.'}</p>
               </div>
               <Switch
                 id="partTime"
@@ -241,6 +262,11 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
                 onCheckedChange={setIsPartTime}
               />
             </div>
+            <p className="text-xs text-muted-foreground -mt-2 px-1">
+              {isPartTime
+                ? `Part-time members aim to drive ${maxDrivesParttime ?? '...'} times per 2-week cycle (vs. ${maxDrivesFulltime ?? '...'} for full-time members).`
+                : `Full-time members aim to drive ${maxDrivesFulltime ?? '...'} times per 2-week cycle (vs. ${maxDrivesParttime ?? '...'} for part-time members).`}
+            </p>
           </TabsContent>
           
           <TabsContent value="custom" className="mt-4 space-y-4 flex-1 min-h-0 overflow-y-auto">

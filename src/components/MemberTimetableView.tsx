@@ -40,8 +40,8 @@ const DEFAULT_RANGE: [number, number] = [8 * 60, 16 * 60];
  * beneath the timetable (not as timetable items themselves). */
 function customDayDetailTexts(customDay: CustomDay | undefined): string[] {
   if (!customDay) return [];
+  if (customDay.ignoreCompletely) return ['Skipped'];
   return [
-    customDay.ignoreCompletely && 'Skipped',
     customDay.needsCar && 'needs car',
     customDay.drivingSkip && 'no car',
     customDay.skipMorning && 'solo AM',

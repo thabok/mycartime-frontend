@@ -52,11 +52,62 @@ export interface DayPlan {
   homeboundTimeInfoByInitials?: Record<string, TimeInfo>;
 }
 
+/**
+ * User-facing "how good is this plan" metrics for the summary tab. Mirrors
+ * backend/src/plan_quality.py's compute_quality_metrics() - see that
+ * module's docstring for the exact definitions.
+ */
+export interface QualityMetrics {
+  flexibility: {
+    value: number; // percentage, 0-100
+    coveredRides: number;
+    totalRidesWithPassengers: number;
+  };
+  packedParties: {
+    value: number; // percentage, 0-100
+    packedCount: number;
+    totalFiveSeaterRides: number;
+    parties: {
+      dayOfWeek: string; // MONDAY .. FRIDAY
+      isWeekA: boolean;
+      time: number; // HHMM format
+      driver: { initials: string; firstName: string };
+      passengers: { initials: string; firstName: string }[];
+    }[];
+  };
+  abDriverMismatch: {
+    value: number; // percentage, 0-100
+    mismatchedCount: number;
+    totalMembers: number;
+    members: {
+      initials: string;
+      firstName: string;
+      /** 0=Monday .. 4=Friday, the weekdays this member drives in week A. */
+      weekdaysA: number[];
+      /** 0=Monday .. 4=Friday, the weekdays this member drives in week B. */
+      weekdaysB: number[];
+    }[];
+  };
+  passengerAbStability: {
+    value: number; // percentage, 0-100
+    matchedCount: number;
+    totalComparableRides: number;
+    mismatches: {
+      initials: string;
+      weekday: number; // 0=Monday .. 4=Friday
+      schoolbound: boolean;
+      driverA: string;
+      driverB: string;
+    }[];
+  };
+}
+
 export interface DrivingPlan {
   summary: string;
   dayPlans: Record<string, DayPlan>;
   memberIdMap?: Record<string, string>;
   scheduleUrlTemplate?: string;
+  qualityMetrics?: QualityMetrics;
 }
 
 export type ViewMode = 'members' | 'plan';

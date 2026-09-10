@@ -377,9 +377,9 @@ export function MembersPanel({ members, onMembersChange, hasPlan, onNavigateToPl
       {/* Navigation to Plan */}
       {filteredMembers.length > 0 && (
         <div className="flex justify-center pt-4 mt-4 border-t border-border">
-          <Button onClick={onNavigateToPlan} size="lg" variant="gradient">
-            <CalendarDays className="h-4 w-4 mr-2" />
-            {hasPlan ? 'Back to Driving Plan' : 'Generate or Load Driving Plan'}
+          <Button onClick={handleAddMember}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Member
           </Button>
         </div>
       )}
@@ -410,7 +410,16 @@ export function MembersPanel({ members, onMembersChange, hasPlan, onNavigateToPl
               {membersWithCustomPrefs.map(({ member, lines }) => (
                 <div key={member.initials} className="rounded-lg border border-border p-2">
                   <div className="grid grid-cols-[minmax(140px,220px)_1fr] gap-x-12 items-start">
-                    <p className="font-medium text-sm leading-6">{member.firstName} {member.lastName}</p>
+                    <button
+                      type="button"
+                      className="font-medium text-sm leading-6 text-left hover:underline"
+                      onClick={() => {
+                        setCustomPrefsOpen(false);
+                        handleEditCustom(member);
+                      }}
+                    >
+                      {member.firstName} {member.lastName}
+                    </button>
                     <div className="space-y-0.2">
                     {lines.map((line) => (
                       <p key={`${member.initials}-${line}`} className="text-sm text-muted-foreground">

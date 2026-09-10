@@ -5,6 +5,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { StatusIndicator } from '@/components/StatusIndicator';
+import { Metric, MetricsGrid } from '@/components/MetricCard';
 import { PlanGenerationState, PlanSolutionMetrics } from '@/types/planGeneration';
 
 /** How often a fresh spinning verb is shown, matching the assistant's pacing. */
@@ -42,19 +43,9 @@ const formatElapsed = (seconds: number) => {
   return mins > 0 ? `${mins}m ${secs.toString().padStart(2, '0')}s` : `${secs}s`;
 };
 
-function Metric({ label, value, hint }: { label: string; value: string | number; hint?: string }) {
+function SolverMetricsGrid({ metrics }: { metrics: PlanSolutionMetrics }) {
   return (
-    <div className="rounded-md border bg-muted/30 px-3 py-2">
-      <div className="text-lg font-semibold tabular-nums leading-tight">{value}</div>
-      <div className="text-xs text-muted-foreground">{label}</div>
-      {hint && <div className="text-[10px] text-muted-foreground/70">{hint}</div>}
-    </div>
-  );
-}
-
-function MetricsGrid({ metrics }: { metrics: PlanSolutionMetrics }) {
-  return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+    <MetricsGrid>
       <Metric
         label="Over their limit"
         value={metrics.numOverMaxDrives}
@@ -67,7 +58,7 @@ function MetricsGrid({ metrics }: { metrics: PlanSolutionMetrics }) {
         hint="lower is better"
       />
       <Metric label="Total drives" value={metrics.totalDrives} />
-    </div>
+    </MetricsGrid>
   );
 }
 
@@ -183,11 +174,11 @@ export function PlanGenerationDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <StatusIndicator text={statusMessage} fallback="Working…" />
+        <StatusIndicator text={statusMessage} fallback="Waiting for Ron to solve chess…" />
 
         {metrics ? (
           <div className="space-y-2">
-            <MetricsGrid metrics={metrics} />
+            <SolverMetricsGrid metrics={metrics} />
             <p className="text-xs text-muted-foreground">
               Best plan so far (improvement #{metrics.solutionCount}). The search keeps
               running to confirm no better plan exists — stop any time to keep this one.
