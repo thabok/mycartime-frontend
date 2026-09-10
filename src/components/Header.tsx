@@ -42,7 +42,7 @@ export function Header({ viewMode, onViewModeChange, hasPlan }: HeaderProps) {
             className="h-9 w-9 p-0"
             title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
           >
-            {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            {isDark ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" /> }
           </Button>
 
             <Button
