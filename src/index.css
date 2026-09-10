@@ -65,41 +65,41 @@
   }
 
   .dark {
-    --background: 0 0% 23%;
-    --foreground: 0 0% 92%;
+    --background: 0 0% 19%;
+    --foreground: 0 0% 98%;
 
-    --card: 0 0% 27%;
-    --card-foreground: 0 0% 92%;
+    --card: 0 0% 23%;
+    --card-foreground: 0 0% 98%;
 
-    --popover: 0 0% 27%;
-    --popover-foreground: 0 0% 92%;
+    --popover: 0 0% 23%;
+    --popover-foreground: 0 0% 98%;
 
     --primary: 168 50% 52%;
     --primary-foreground: 0 0% 10%;
 
-    --secondary: 0 0% 30%;
-    --secondary-foreground: 0 0% 88%;
+    --secondary: 0 0% 26%;
+    --secondary-foreground: 0 0% 95%;
 
-    --muted: 0 0% 30%;
-    --muted-foreground: 0 0% 62%;
+    --muted: 0 0% 26%;
+    --muted-foreground: 0 0% 70%;
 
-    --accent: 0 0% 33%;
-    --accent-foreground: 0 0% 92%;
+    --accent: 0 0% 29%;
+    --accent-foreground: 0 0% 98%;
 
     --destructive: 0 55% 52%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 33%;
-    --input: 0 0% 33%;
+    --border: 0 0% 29%;
+    --input: 0 0% 29%;
     --ring: 168 50% 52%;
 
-    --sidebar-background: 0 0% 20%;
-    --sidebar-foreground: 0 0% 90%;
+    --sidebar-background: 0 0% 16%;
+    --sidebar-foreground: 0 0% 96%;
     --sidebar-primary: 168 45% 55%;
     --sidebar-primary-foreground: 0 0% 10%;
-    --sidebar-accent: 0 0% 27%;
-    --sidebar-accent-foreground: 0 0% 90%;
-    --sidebar-border: 0 0% 25%;
+    --sidebar-accent: 0 0% 23%;
+    --sidebar-accent-foreground: 0 0% 96%;
+    --sidebar-border: 0 0% 21%;
     --sidebar-ring: 168 45% 55%;
 
     /* Softer gradient + glow tuned for the muted dark palette */
