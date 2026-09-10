@@ -17,24 +17,8 @@ export function Header({ viewMode, onViewModeChange, hasPlan }: HeaderProps) {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [preferencesOpen, setPreferencesOpen] = useState(false);
 
-  // Theme is a personal preference, persisted in localStorage rather than the URL.
-  const [isDark, setIsDark] = useLocalStorage(
-    'carpool-theme-dark',
-    typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
-  );
-
-  useEffect(() => {
-    // Apply theme on mount and when changed
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [isDark]);
-
-  const toggleTheme = () => {
-    setIsDark(!isDark);
-  };
+  // Theme follows the OS by default; once toggled, the explicit choice sticks.
+  const { preference, isDark, toggleTheme, setThemePreference } = useTheme();
 
   return (
     <header className="flex-shrink-0 border-b border-border bg-card/50 backdrop-blur-sm z-50">
