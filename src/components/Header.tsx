@@ -1,4 +1,4 @@
-import { Car, Users, CalendarDays, MessageSquare, Monitor, Moon, Settings, Sun } from 'lucide-react';
+import { Car, Users, CalendarDays, MessageSquare, Moon, Settings, Sun } from 'lucide-react';
 import { ViewMode } from '@/types/carpool';
 import { Button } from '@/components/ui/button';
 import { FeedbackDialog } from '@/components/FeedbackDialog';
@@ -18,7 +18,7 @@ export function Header({ viewMode, onViewModeChange, hasPlan }: HeaderProps) {
   const [preferencesOpen, setPreferencesOpen] = useState(false);
 
   // Theme follows the OS by default; once toggled, the explicit choice sticks.
-  const { preference, setThemePreference } = useTheme();
+  const { isDark, setThemePreference } = useTheme();
 
   return (
     <header className="flex-shrink-0 border-b border-border bg-card/50 backdrop-blur-sm z-50">
@@ -37,7 +37,7 @@ export function Header({ viewMode, onViewModeChange, hasPlan }: HeaderProps) {
           <nav className="flex items-center gap-2">
           <div className="flex items-center gap-0.5">
             <Button
-              variant={preference === 'light' ? 'default' : 'ghost'}
+              variant={!isDark ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setThemePreference('light')}
               className="h-9 w-9 p-0"
@@ -46,16 +46,7 @@ export function Header({ viewMode, onViewModeChange, hasPlan }: HeaderProps) {
               <Sun className="h-4 w-4" />
             </Button>
             <Button
-              variant={preference === 'system' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setThemePreference('system')}
-              className="h-9 w-9 p-0"
-              title={`Auto (follows OS)${preference === 'system' ? '' : ' — click to follow OS'}`}
-            >
-              <Monitor className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={preference === 'dark' ? 'default' : 'ghost'}
+              variant={isDark ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setThemePreference('dark')}
               className="h-9 w-9 p-0"
