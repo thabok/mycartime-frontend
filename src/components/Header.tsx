@@ -1,11 +1,11 @@
-import { Car, Users, CalendarDays, MessageSquare, Moon, Settings, Sun } from 'lucide-react';
+import { Car, Users, CalendarDays, MessageSquare, Monitor, Moon, Settings, Sun } from 'lucide-react';
 import { ViewMode } from '@/types/carpool';
 import { Button } from '@/components/ui/button';
 import { FeedbackDialog } from '@/components/FeedbackDialog';
 import { PreferencesDialog } from '@/components/PreferencesDialog';
 import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useTheme } from '@/hooks/useTheme';
 
 interface HeaderProps {
   viewMode: ViewMode;
