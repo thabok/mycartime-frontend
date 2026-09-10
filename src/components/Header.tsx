@@ -18,7 +18,7 @@ export function Header({ viewMode, onViewModeChange, hasPlan }: HeaderProps) {
   const [preferencesOpen, setPreferencesOpen] = useState(false);
 
   // Theme follows the OS by default; once toggled, the explicit choice sticks.
-  const { isDark, setThemePreference } = useTheme();
+  const { isDark, toggleTheme } = useTheme();
 
   return (
     <header className="flex-shrink-0 border-b border-border bg-card/50 backdrop-blur-sm z-50">
@@ -35,26 +35,15 @@ export function Header({ viewMode, onViewModeChange, hasPlan }: HeaderProps) {
           </div>
           
           <nav className="flex items-center gap-2">
-          <div className="flex items-center gap-0.5">
-            <Button
-              variant={!isDark ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setThemePreference('light')}
-              className="h-9 w-9 p-0"
-              title="Light mode"
-            >
-              <Sun className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={isDark ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setThemePreference('dark')}
-              className="h-9 w-9 p-0"
-              title="Dark mode"
-            >
-              <Moon className="h-4 w-4" />
-            </Button>
-          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={toggleTheme}
+            className="h-9 w-9 p-0"
+            title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </Button>
 
             <Button
               variant="ghost"
