@@ -1,11 +1,11 @@
-import { Car, Users, CalendarDays, MessageSquare, Moon, Settings, Sun } from 'lucide-react';
+import { Car, Users, CalendarDays, MessageSquare, Monitor, Moon, Settings, Sun } from 'lucide-react';
 import { ViewMode } from '@/types/carpool';
 import { Button } from '@/components/ui/button';
 import { FeedbackDialog } from '@/components/FeedbackDialog';
 import { PreferencesDialog } from '@/components/PreferencesDialog';
 import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useTheme } from '@/hooks/useTheme';
 
 interface HeaderProps {
   viewMode: ViewMode;
@@ -17,24 +17,8 @@ export function Header({ viewMode, onViewModeChange, hasPlan }: HeaderProps) {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [preferencesOpen, setPreferencesOpen] = useState(false);
 
-  // Theme is a personal preference, persisted in localStorage rather than the URL.
-  const [isDark, setIsDark] = useLocalStorage(
-    'carpool-theme-dark',
-    typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
-  );
-
-  useEffect(() => {
-    // Apply theme on mount and when changed
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [isDark]);
-
-  const toggleTheme = () => {
-    setIsDark(!isDark);
-  };
+  // Theme follows the OS by default; once toggled, the explicit choice sticks.
+  const { preference, setThemePreference } = useTheme();
 
   return (
     <header className="flex-shrink-0 border-b border-border bg-card/50 backdrop-blur-sm z-50">
@@ -51,19 +35,35 @@ export function Header({ viewMode, onViewModeChange, hasPlan }: HeaderProps) {
           </div>
           
           <nav className="flex items-center gap-2">
+          <div className="flex items-center gap-0.5">
             <Button
-                variant="ghost"
-                size="sm"
-                onClick={toggleTheme}
-                className="h-9 w-9 p-0"
-                title={isDark ? "Switch to light mode" : "Switch to dark mode"}
-              >
-                {isDark ? (
-                  <Sun className="h-4 w-4" />
-                ) : (
-                  <Moon className="h-4 w-4" />
-                )}
+              variant={preference === 'light' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setThemePreference('light')}
+              className="h-9 w-9 p-0"
+              title="Light mode"
+            >
+              <Sun className="h-4 w-4" />
             </Button>
+            <Button
+              variant={preference === 'system' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setThemePreference('system')}
+              className="h-9 w-9 p-0"
+              title={`Auto (follows OS)${preference === 'system' ? '' : ' — click to follow OS'}`}
+            >
+              <Monitor className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={preference === 'dark' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setThemePreference('dark')}
+              className="h-9 w-9 p-0"
+              title="Dark mode"
+            >
+              <Moon className="h-4 w-4" />
+            </Button>
+          </div>
 
             <Button
               variant="ghost"
