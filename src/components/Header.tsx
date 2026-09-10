@@ -18,7 +18,7 @@ export function Header({ viewMode, onViewModeChange, hasPlan }: HeaderProps) {
   const [preferencesOpen, setPreferencesOpen] = useState(false);
 
   // Theme follows the OS by default; once toggled, the explicit choice sticks.
-  const { preference, isDark, toggleTheme, setThemePreference } = useTheme();
+  const { preference, setThemePreference } = useTheme();
 
   return (
     <header className="flex-shrink-0 border-b border-border bg-card/50 backdrop-blur-sm z-50">
