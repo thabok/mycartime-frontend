@@ -55,10 +55,10 @@ export function Header({ viewMode, onViewModeChange, hasPlan }: HeaderProps) {
               <Monitor className="h-4 w-4" />
             </Button>
             <Button
-              variant={preference === 'dark' ? 'default' : 'default'}
+              variant={preference === 'dark' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setThemePreference('dark')}
-              className={cn("h-9 w-9 p-0", preference !== 'dark' && "opacity-50")}
+              className="h-9 w-9 p-0"
               title="Dark mode"
             >
               <Moon className="h-4 w-4" />
