@@ -19,10 +19,10 @@ const formatPerson = (person: { initials: string; firstName: string }): string =
  */
 export function PlanQualityMetrics({ metrics }: { metrics: QualityMetrics }) {
   const notPackedValue = 100 - metrics.packedParties.value;
-  const notPackedCount = metrics.packedParties.totalFiveSeaterRides - metrics.packedParties.packedCount;
-  const notPackedHint = metrics.packedParties.totalFiveSeaterRides > 0
-    ? `${notPackedCount} of ${metrics.packedParties.totalFiveSeaterRides} 5-seater rides have at least 1 free seat`
-    : 'no 5-seater rides';
+  const notPackedCount = metrics.packedParties.totalRides - metrics.packedParties.packedCount;
+  const notPackedHint = metrics.packedParties.totalRides > 0
+    ? `${notPackedCount} of ${metrics.packedParties.totalRides} parties don't need someone to sit in the infamous back row middle seat`
+    : 'no rides';
 
   const matchedAbValue = 100 - metrics.abDriverMismatch.value;
   const matchedAbCount = metrics.abDriverMismatch.totalMembers - metrics.abDriverMismatch.mismatchedCount;
@@ -34,12 +34,12 @@ export function PlanQualityMetrics({ metrics }: { metrics: QualityMetrics }) {
       <Metric
         label="Flexibility"
         value={`${metrics.flexibility.value}%`}
-        hint={`${metrics.flexibility.coveredRides}/${metrics.flexibility.totalRidesWithPassengers} rides have a backup in case a driver drops out on short notice`}
+        hint={`${metrics.flexibility.coveredRides} of ${metrics.flexibility.totalRidesWithPassengers} rides have a backup in case a driver drops out on short notice`}
         icon={LifeBuoy}
         tooltip={
           <>
             <p className="mt-1">
-              For {metrics.flexibility.coveredRides} out of {metrics.flexibility.totalRidesWithPassengers} parties, the passengers can be accommodated by another party if the driver calls in sick.
+              For {metrics.flexibility.coveredRides} of {metrics.flexibility.totalRidesWithPassengers} parties, the passengers can be accommodated by another party if the driver calls in sick.
               <br/><br/>
               A party counts as able to help only if they still have a free seat and the times fit within the usual tolerance and no-waiting-afternoon rules.
             </p>
@@ -47,14 +47,14 @@ export function PlanQualityMetrics({ metrics }: { metrics: QualityMetrics }) {
         }
       />
       <Metric
-        label="Not tightly packed"
+        label="No middle seat needed"
         value={`${notPackedValue}%`}
         hint={notPackedHint}
         icon={ArmchairIcon} />
       <Metric
         label="Matched driving days A/B"
         value={`${matchedAbValue}%`}
-        hint={`${matchedAbCount}/${metrics.abDriverMismatch.totalMembers} members have matched A/B driving days`}
+        hint={`${matchedAbCount} of ${metrics.abDriverMismatch.totalMembers} members have matched A/B driving days`}
         icon={CalendarCheck2}
         tooltip={
           <>Members with unmatched A/B driving days:<br/><br/>

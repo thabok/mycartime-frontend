@@ -66,7 +66,7 @@ export interface QualityMetrics {
   packedParties: {
     value: number; // percentage, 0-100
     packedCount: number;
-    totalFiveSeaterRides: number;
+    totalRides: number;
     parties: {
       dayOfWeek: string; // MONDAY .. FRIDAY
       isWeekA: boolean;
