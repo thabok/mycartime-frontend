@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Globe, Undo, SlidersHorizontal } from 'lucide-react';
+import { Globe, Undo, SlidersHorizontal, Sparkles } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -36,21 +36,29 @@ interface Settings {
   TIME_TOLERANCE_MINUTES: number;
   MAX_DRIVES_FULLTIME: number;
   MAX_DRIVES_PARTTIME: number;
+  ANTHROPIC_API_KEY: string;
+  CLAUDE_CLI_PATH: string;
 }
 
-type Category = 'webuntis' | 'planGeneration';
+type Category = 'webuntis' | 'planGeneration' | 'aiAssistant';
 
 const CATEGORIES: { id: Category; label: string; icon: typeof Globe }[] = [
   { id: 'webuntis', label: 'WebUntis', icon: Globe },
   { id: 'planGeneration', label: 'Plan generation', icon: SlidersHorizontal },
+  { id: 'aiAssistant', label: 'AI Assistant', icon: Sparkles },
 ];
+
+const CATEGORY_NOTES: Partial<Record<Category, string>> = {
+  aiAssistant:
+    'The assistant uses your Anthropic API key when one is stored. If no key is stored, or the key stops working, it falls back to the claude CLI at the path below.',
+};
 
 interface ConfigField {
   category: Category;
   key: keyof Settings;
   label: string;
   description: string;
-  type: 'text' | 'number';
+  type: 'text' | 'number' | 'password';
   placeholder?: string;
 }
 
@@ -97,7 +105,28 @@ const CONFIG_FIELDS: ConfigField[] = [
       'The most times a part-time member should be asked to drive over the 2-week schedule cycle.',
     type: 'number',
   },
+  {
+    category: 'aiAssistant',
+    key: 'ANTHROPIC_API_KEY',
+    label: 'Anthropic API key',
+    description:
+      'Kept on this computer only, in a settings file readable just by your user account. It is never sent back to this dialog once saved.',
+    type: 'password',
+    placeholder: 'sk-ant-...',
+  },
+  {
+    category: 'aiAssistant',
+    key: 'CLAUDE_CLI_PATH',
+    label: 'Path to the claude CLI',
+    description:
+      'Full path to the executable, e.g. /opt/homebrew/bin/claude. Needed because an app started from the Dock does not inherit your shell\'s PATH. Leave empty to search PATH.',
+    type: 'text',
+    placeholder: '/opt/homebrew/bin/claude',
+  },
 ];
+
+// The backend never sends the API key back, only whether one is stored.
+type SettingsResponse = Omit<Settings, 'ANTHROPIC_API_KEY'> & { ANTHROPIC_API_KEY_SET: boolean };
 
 export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps) {
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -106,6 +135,8 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
   const [isSaving, setIsSaving] = useState(false);
   const [category, setCategory] = useState<Category>('webuntis');
   const [showUnsavedPrompt, setShowUnsavedPrompt] = useState(false);
+  const [keyStored, setKeyStored] = useState(false);
+  const [clearKey, setClearKey] = useState(false);
   const { toast } = useToast();
   const backendHostAndPort = getBackendUrl();
 
@@ -121,9 +152,13 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
         if (!response.ok) throw new Error('Failed to load settings');
         return response.json();
       })
-      .then((data: Settings) => {
-        setSettings(data);
-        setOriginalSettings(data);
+      .then(({ ANTHROPIC_API_KEY_SET, ...rest }: SettingsResponse) => {
+        // The key field always starts blank; a non-empty value means "replace".
+        const normalized: Settings = { ...rest, ANTHROPIC_API_KEY: '' };
+        setSettings(normalized);
+        setOriginalSettings(normalized);
+        setKeyStored(ANTHROPIC_API_KEY_SET);
+        setClearKey(false);
       })
       .catch(() => {
         toast({ title: 'Could not load preferences', variant: 'destructive' });
@@ -140,17 +175,24 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
         )
       : []
   );
-  const hasUnsavedChanges = dirtyKeys.size > 0;
+  const hasUnsavedChanges = dirtyKeys.size > 0 || clearKey;
 
   const savePreferences = async () => {
     if (!settings) return;
+
+    // An untouched key field must not wipe the stored key, so it is only sent
+    // when the user typed a replacement or explicitly asked to remove it.
+    const { ANTHROPIC_API_KEY, ...payload } = settings;
+    const body: Record<string, unknown> = { ...payload };
+    if (ANTHROPIC_API_KEY) body.ANTHROPIC_API_KEY = ANTHROPIC_API_KEY;
+    else if (clearKey) body.ANTHROPIC_API_KEY = '';
 
     setIsSaving(true);
     try {
       const response = await fetch(`${backendHostAndPort}/api/v1/settings`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings),
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {
@@ -224,10 +266,16 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
               </nav>
 
               <div className="flex-1 space-y-4 p-6">
+                {CATEGORY_NOTES[category] && (
+                  <p className="text-xs text-muted-foreground bg-muted/50 border border-border rounded-md p-3">
+                    {CATEGORY_NOTES[category]}
+                  </p>
+                )}
                 {CONFIG_FIELDS.filter((field) => field.category === category).map((field) => {
                   const inputId = `pref-${field.key}`;
                   const value = settings[field.key];
                   const isDirty = dirtyKeys.has(field.key);
+                  const isApiKey = field.key === 'ANTHROPIC_API_KEY';
                   return (
                     <div key={field.key} className="space-y-2">
                       <div className="flex items-center justify-between">
@@ -261,7 +309,11 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
                         type={field.type}
                         min={field.type === 'number' ? 0 : undefined}
                         value={value}
-                        placeholder={field.placeholder}
+                        placeholder={
+                          isApiKey && keyStored && !clearKey
+                            ? '•••••••••••••••• (saved - type to replace)'
+                            : field.placeholder
+                        }
                         onChange={(e) =>
                           setSettings({
                             ...settings,
@@ -270,7 +322,34 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
                           })
                         }
                       />
-                      <p className="text-xs text-muted-foreground">{field.description}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {field.description}
+                        {isApiKey && keyStored && !value && (
+                          <>
+                            {' '}
+                            {clearKey ? (
+                              <span className="text-destructive">
+                                The saved key will be removed when you save.{' '}
+                                <button
+                                  type="button"
+                                  className="underline hover:no-underline"
+                                  onClick={() => setClearKey(false)}
+                                >
+                                  Keep it
+                                </button>
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                className="underline hover:no-underline"
+                                onClick={() => setClearKey(true)}
+                              >
+                                Remove the saved key
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </p>
                     </div>
                   );
                 })}

@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Pencil, Users, FileText, Download, Image, Trash2, Flag, UserRoundX, Clock, X } from 'lucide-react';
 import { cn, downloadJson } from '@/lib/utils';
-import { getBackendUrl } from '@/lib/config';
+import { buildPlanPngZip, saveZip } from '@/lib/exportPng';
 import { PlanQualityMetrics } from './PlanQualityMetrics';
 import { DayPlanEditDialog } from './DayPlanEditDialog';
 import { MemberDialog } from './MemberDialog';
@@ -370,33 +370,20 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
   const handleExportPng = async () => {
     toast({ title: 'Preparing PNGs', description: 'This can take a few seconds…' });
     try {
-      const darkMode = JSON.parse(window.localStorage.getItem('carpool-theme-dark') || 'false');
-      const backendHostAndPort = getBackendUrl();
-      const response = await fetch(`${backendHostAndPort}/api/v1/export/png`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          members,
-          plan,
-          referenceDate: referenceDate ? format(referenceDate, 'yyyy-MM-dd') : null,
-          showDesignatedDriver,
-          showSoloDriver,
-          darkMode,
-        }),
+      const blob = await buildPlanPngZip({
+        plan,
+        members,
+        referenceDate,
+        showDesignatedDriver,
+        showSoloDriver,
       });
-      if (!response.ok) throw new Error(`Export request failed with status ${response.status}`);
-      const blob = await response.blob();
 
       // Both weeks are bundled into a single ZIP (rather than downloaded as
       // two separate files) because browsers throttle/drop automatically
       // triggered downloads fired back-to-back without a fresh user gesture.
       const weekAMonday = referenceDate ? format(getWeekMonday(referenceDate, true), 'yyyy-MM-dd') : '';
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = weekAMonday ? `driving-plan-${weekAMonday}.zip` : 'driving-plan.zip';
-      a.click();
-      URL.revokeObjectURL(url);
+      const saved = await saveZip(blob, weekAMonday ? `driving-plan-${weekAMonday}.zip` : 'driving-plan.zip');
+      if (!saved) return;
 
       toast({ title: 'Exported', description: 'Week A and Week B saved as a ZIP of PNGs.' });
     } catch (err) {
