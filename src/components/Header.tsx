@@ -11,9 +11,10 @@ interface HeaderProps {
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
   hasPlan: boolean;
+  onPreferencesSaved: () => void;
 }
 
-export function Header({ viewMode, onViewModeChange, hasPlan }: HeaderProps) {
+export function Header({ viewMode, onViewModeChange, hasPlan, onPreferencesSaved }: HeaderProps) {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [preferencesOpen, setPreferencesOpen] = useState(false);
 
@@ -96,7 +97,11 @@ export function Header({ viewMode, onViewModeChange, hasPlan }: HeaderProps) {
       </div>
 
       <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
-      <PreferencesDialog open={preferencesOpen} onOpenChange={setPreferencesOpen} />
+      <PreferencesDialog
+        open={preferencesOpen}
+        onOpenChange={setPreferencesOpen}
+        onSaved={onPreferencesSaved}
+      />
     </header>
   );
 }

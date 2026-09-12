@@ -58,7 +58,7 @@ const Index = () => {
   const clearHighlights = () => setModifiedPartyKeys(new Set());
 
   const assistant = useAssistant({ members, onMembersChange: setMembers, plan, onPlanChange: handlePlanChange });
-  const assistantAvailable = useAssistantAvailability();
+  const [assistantAvailable, refreshAssistantAvailability] = useAssistantAvailability();
 
   const assistantPanel = (
     <AssistantPanel
@@ -88,6 +88,7 @@ const Index = () => {
         viewMode={viewMode}
         onViewModeChange={handleViewModeChange}
         hasPlan={!!plan}
+        onPreferencesSaved={refreshAssistantAvailability}
       />
 
       <div className="flex flex-1 min-h-0">

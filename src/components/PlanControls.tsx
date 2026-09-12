@@ -157,7 +157,7 @@ export function PlanControls({ members, plan, onPlanChange, onViewPlan, onRefere
       });
 
       if (!response.ok || !response.body) {
-        throw new Error(`Server responded with ${response.status}`);
+        throw new Error('Something went wrong while generating the plan. Please try again.');
       }
 
       let generatedPlan: DrivingPlan | null = null;
@@ -237,7 +237,7 @@ export function PlanControls({ members, plan, onPlanChange, onViewPlan, onRefere
         title: 'Generation failed',
         description: error instanceof Error && error.message
           ? error.message
-          : 'Could not connect to the backend service. Please check if it\'s running.',
+          : 'Could not connect. Please check your internet connection and try again.',
         variant: 'destructive'
       });
     } finally {
@@ -322,7 +322,7 @@ export function PlanControls({ members, plan, onPlanChange, onViewPlan, onRefere
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder={hasStoredPassword ? '•••••••• (saved)' : 'Password'}
+                placeholder={hasStoredPassword ? '••••••••' : 'Password'}
                 disabled={!!plan}
               />
             </div>

@@ -31,6 +31,10 @@ import { useLocalStorage } from '@/hooks/useLocalStorage';
 interface PreferencesDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  // Called after preferences are successfully saved, so callers can react
+  // immediately (e.g. re-check whether the AI assistant button should be
+  // shown) instead of waiting for the next app load.
+  onSaved: () => void;
 }
 
 interface Settings {
@@ -49,6 +53,13 @@ interface Settings {
 // user_settings.SECRET_SETTINGS.
 const SECRET_KEYS = ['ANTHROPIC_API_KEY', 'WEBUNTIS_PASSWORD'] as const satisfies readonly (keyof Settings)[];
 type SecretKey = (typeof SECRET_KEYS)[number];
+
+// Anthropic keys are much longer than a typical password, so the default
+// 8-dot mask looks wrong next to a real one - use a longer mask just for it.
+const STORED_VALUE_PLACEHOLDERS: Partial<Record<SecretKey, string>> = {
+  ANTHROPIC_API_KEY: '••••••••••••••••••••••••••••••••••••••••',
+};
+const DEFAULT_STORED_VALUE_PLACEHOLDER = '••••••••';
 
 type Category = 'webuntis' | 'planGeneration' | 'aiAssistant';
 
@@ -95,16 +106,14 @@ const CONFIG_FIELDS: ConfigField[] = [
     category: 'webuntis',
     key: 'WEBUNTIS_USERNAME',
     label: 'Username',
-    description:
-      'Saved here so the app can fetch schedules without asking for it again on every restart.',
+    description: '',
     type: 'text',
   },
   {
     category: 'webuntis',
     key: 'WEBUNTIS_PASSWORD',
     label: 'Password',
-    description:
-      'Kept on this computer only, encrypted at rest in a settings file readable just by your user account. It is never sent back to this dialog once saved.',
+    description: '',
     type: 'password',
   },
   {
@@ -136,7 +145,7 @@ const CONFIG_FIELDS: ConfigField[] = [
     key: 'ANTHROPIC_API_KEY',
     label: 'Anthropic API key',
     description:
-      'Kept on this computer only, in a settings file readable just by your user account. It is never sent back to this dialog once saved.',
+      '',
     type: 'password',
     placeholder: 'sk-ant-...',
   },
@@ -145,7 +154,7 @@ const CONFIG_FIELDS: ConfigField[] = [
     key: 'CLAUDE_CLI_PATH',
     label: 'Path to the claude CLI',
     description:
-      'Full path to the executable, e.g. /opt/homebrew/bin/claude. Needed because an app started from the Dock does not inherit your shell\'s PATH. Leave empty to search PATH.',
+      'Full path to the executable, e.g. /opt/homebrew/bin/claude.',
     type: 'text',
     placeholder: '/opt/homebrew/bin/claude',
   },
@@ -153,12 +162,14 @@ const CONFIG_FIELDS: ConfigField[] = [
 
 type SettingsResponse = Omit<Settings, SecretKey> & { [K in SecretKey as `${K}_SET`]: boolean };
 
-export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps) {
+export function PreferencesDialog({ open, onOpenChange, onSaved }: PreferencesDialogProps) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [originalSettings, setOriginalSettings] = useState<Settings | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [category, setCategory] = useState<Category>('webuntis');
+  // Remembered across dialog opens (and app restarts) so returning to
+  // Settings lands back on whichever category was last viewed.
+  const [category, setCategory] = useLocalStorage<Category>('carpool-preferences-category', 'webuntis');
   const [showUnsavedPrompt, setShowUnsavedPrompt] = useState(false);
   const [storedFlags, setStoredFlags] = useState<Record<SecretKey, boolean>>(
     Object.fromEntries(SECRET_KEYS.map((key) => [key, false])) as Record<SecretKey, boolean>
@@ -178,7 +189,6 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
   useEffect(() => {
     if (!open) return;
 
-    setCategory('webuntis');
     setTestResult(null);
     setIsLoading(true);
     fetch(`${backendHostAndPort}/api/v1/settings`)
@@ -250,9 +260,9 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
         throw new Error(body?.error || 'Failed to save preferences');
       }
 
-      toast({ title: 'Preferences saved' });
       setShowUnsavedPrompt(false);
       onOpenChange(false);
+      onSaved();
     } catch (error) {
       toast({
         title: 'Could not save preferences',
@@ -289,8 +299,8 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
           {isLoading || !settings ? (
             <p className="text-sm text-muted-foreground px-6 pb-6">Loading...</p>
           ) : (
-            <div className="flex min-h-[22rem] border-t border-border">
-              <nav className="w-44 flex-shrink-0 border-r border-border bg-muted/30 py-2">
+            <div className="flex h-[34rem] border-t border-border">
+              <nav className="w-44 flex-shrink-0 border-r border-border bg-muted/30 py-2 overflow-y-auto">
                 {CATEGORIES.map(({ id, label, icon: Icon }) => {
                   const categoryDirty = CONFIG_FIELDS.some(
                     (field) => field.category === id && dirtyKeys.has(field.key)
@@ -318,7 +328,7 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
                 })}
               </nav>
 
-              <div className="flex-1 space-y-4 p-6">
+              <div className="flex-1 space-y-4 p-6 overflow-y-auto">
                 {CATEGORY_NOTES[category] && (
                   <p className="text-xs text-muted-foreground bg-muted/50 border border-border rounded-md p-3">
                     {CATEGORY_NOTES[category]}
@@ -367,7 +377,7 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
                         value={value}
                         placeholder={
                           keyStored && !clearKey
-                            ? '•••••••••••••••• (saved - type to replace)'
+                            ? STORED_VALUE_PLACEHOLDERS[secretKey] ?? DEFAULT_STORED_VALUE_PLACEHOLDER
                             : field.placeholder
                         }
                         onChange={(e) =>
@@ -436,7 +446,7 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
                         } catch (error) {
                           setTestResult({
                             success: false,
-                            message: error instanceof Error ? error.message : 'Could not reach the backend.',
+                            message: error instanceof Error ? error.message : 'Could not connect. Please check your internet connection and try again.',
                           });
                         } finally {
                           setIsTestingConnection(false);
@@ -445,9 +455,6 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
                     >
                       {isTestingConnection ? 'Testing...' : 'Test connection'}
                     </Button>
-                    <p className="text-xs text-muted-foreground">
-                      Uses any values typed above, falling back to what is already saved for fields left blank.
-                    </p>
                     {testResult && (
                       <p
                         className={cn(
@@ -485,7 +492,7 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
                         } catch (error) {
                           setTestResult({
                             success: false,
-                            message: error instanceof Error ? error.message : 'Could not reach the backend.',
+                            message: error instanceof Error ? error.message : 'Could not connect. Please check your internet connection and try again.',
                           });
                         } finally {
                           setIsTestingConnection(false);
@@ -494,10 +501,6 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
                     >
                       {isTestingConnection ? 'Testing...' : 'Test connection'}
                     </Button>
-                    <p className="text-xs text-muted-foreground">
-                      Uses the API key typed above (falling back to what is already saved if left
-                      blank) and the CLI path above.
-                    </p>
                     {testResult && (
                       <p
                         className={cn(

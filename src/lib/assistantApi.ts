@@ -17,7 +17,7 @@ export async function testAssistantConnection(
     body: JSON.stringify(params),
   });
   if (!response.ok) {
-    throw new Error(`Server responded with ${response.status}`);
+    throw new Error('Something went wrong while testing the connection. Please try again.');
   }
   return response.json() as Promise<TestConnectionResult>;
 }
