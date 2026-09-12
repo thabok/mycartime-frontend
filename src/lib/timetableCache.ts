@@ -47,11 +47,18 @@ const formatDateForApi = (date: Date): string => {
   return `${yyyy}${mm}${dd}`;
 };
 
+/** Explicit username/hash to log in with, or an empty object to fall back
+ * to whatever WebUntis credentials the backend has stored (see
+ * useWebuntisCredentials). */
+export interface WebuntisCredentialFields {
+  username?: string;
+  hash?: string;
+}
+
 export async function fetchMemberTimetableDetail(
   member: Member,
   referenceDate: Date,
-  username: string,
-  password: string,
+  credentialFields: WebuntisCredentialFields,
 ): Promise<MemberTimetableDetail> {
   const backendHostAndPort = getBackendUrl();
   const response = await fetch(`${backendHostAndPort}/api/v1/membertimetable`, {
@@ -60,8 +67,7 @@ export async function fetchMemberTimetableDetail(
     body: JSON.stringify({
       person: member,
       scheduleReferenceStartDate: formatDateForApi(referenceDate),
-      username: username.trim(),
-      hash: btoa(password),
+      ...credentialFields,
     }),
   });
   if (!response.ok) throw new Error(`Server responded with ${response.status}`);
@@ -72,14 +78,13 @@ export async function fetchMemberTimetableDetail(
 export async function refreshTimetableCache(
   members: Member[],
   referenceDate: Date,
-  username: string,
-  password: string,
+  credentialFields: WebuntisCredentialFields,
 ): Promise<void> {
   await Promise.allSettled(
     members
       .filter((member) => member.initials)
       .map(async (member) => {
-        const detail = await fetchMemberTimetableDetail(member, referenceDate, username, password);
+        const detail = await fetchMemberTimetableDetail(member, referenceDate, credentialFields);
         setCachedMemberTimetable(member.initials, detail);
       })
   );

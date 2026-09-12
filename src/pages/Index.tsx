@@ -4,6 +4,7 @@ import { parseISO } from 'date-fns';
 import { Member, DrivingPlan, ViewMode } from '@/types/carpool';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useAssistant } from '@/hooks/useAssistant';
+import { useAssistantAvailability } from '@/hooks/useAssistantAvailability';
 import { diffModifiedPartyKeys } from '@/lib/planDiff';
 import { Header } from '@/components/Header';
 import { MembersPanel } from '@/components/MembersPanel';
@@ -57,6 +58,7 @@ const Index = () => {
   const clearHighlights = () => setModifiedPartyKeys(new Set());
 
   const assistant = useAssistant({ members, onMembersChange: setMembers, plan, onPlanChange: handlePlanChange });
+  const assistantAvailable = useAssistantAvailability();
 
   const assistantPanel = (
     <AssistantPanel
@@ -126,7 +128,7 @@ const Index = () => {
         {assistant.isOpen && assistant.displayMode === 'sidebar' && assistantPanel}
       </div>
 
-      {!assistant.isOpen && <AssistantFab onClick={() => assistant.setIsOpen(true)} />}
+      {assistantAvailable && !assistant.isOpen && <AssistantFab onClick={() => assistant.setIsOpen(true)} />}
 
       {assistant.isOpen && assistant.displayMode === 'dialog' && (
         <Dialog open onOpenChange={(open) => { if (!open) assistant.setIsOpen(false); }}>

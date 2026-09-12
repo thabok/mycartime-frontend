@@ -4,8 +4,7 @@ import { CustomDay, Member, MemberTimetableDetail, MemberTimetableSlot, Timetabl
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
-import { useSessionStorage } from '@/hooks/useSessionStorage';
+import { useWebuntisCredentials } from '@/hooks/useWebuntisCredentials';
 import { DAY_NAMES, formatTime } from '@/lib/planFormat';
 import { getCachedMemberTimetable, fetchMemberTimetableDetail, setCachedMemberTimetable } from '@/lib/timetableCache';
 
@@ -480,8 +479,7 @@ function computeVisualEntries(positioned: PositionedEntry[], rangeStart: number)
 }
 
 export function MemberTimetableView({ member, referenceDate, initialWeekA, initialHighlightDay }: MemberTimetableViewProps) {
-  const [username] = useLocalStorage<string>('carpool-username', '');
-  const [password] = useSessionStorage<string>('carpool-password', '');
+  const { hasCredentials, credentialFields } = useWebuntisCredentials();
   const [isWeekA, setIsWeekA] = useState(initialWeekA ?? true);
   const [showDetails, setShowDetails] = useState(true);
   const [showExcluded, setShowExcluded] = useState(false);
@@ -515,8 +513,6 @@ export function MemberTimetableView({ member, referenceDate, initialWeekA, initi
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const hasCredentials = !!username.trim() && !!password.trim();
-
   useEffect(() => {
     const cached = getCachedMemberTimetable(member.initials);
     setDetail(cached?.detail ?? null);
@@ -529,7 +525,7 @@ export function MemberTimetableView({ member, referenceDate, initialWeekA, initi
     let cancelled = false;
     if (!cached) setIsLoading(true);
 
-    fetchMemberTimetableDetail(member, referenceDate, username.trim(), password)
+    fetchMemberTimetableDetail(member, referenceDate, credentialFields)
       .then((data) => {
         if (cancelled) return;
         setDetail(data);

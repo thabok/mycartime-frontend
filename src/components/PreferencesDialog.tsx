@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Globe, Undo, SlidersHorizontal, Sparkles } from 'lucide-react';
+import { Globe, Undo, SlidersHorizontal, Sparkles, CheckCircle2, XCircle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -24,6 +24,9 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { getBackendUrl } from '@/lib/config';
+import { testWebuntisConnection } from '@/lib/webuntisApi';
+import { testAssistantConnection } from '@/lib/assistantApi';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 
 interface PreferencesDialogProps {
   open: boolean;
@@ -33,12 +36,19 @@ interface PreferencesDialogProps {
 interface Settings {
   WEBUNTIS_SERVER: string;
   WEBUNTIS_SCHOOL: string;
+  WEBUNTIS_USERNAME: string;
+  WEBUNTIS_PASSWORD: string;
   TIME_TOLERANCE_MINUTES: number;
   MAX_DRIVES_FULLTIME: number;
   MAX_DRIVES_PARTTIME: number;
   ANTHROPIC_API_KEY: string;
   CLAUDE_CLI_PATH: string;
 }
+
+// Fields the backend never sends back, only whether a value is stored - see
+// user_settings.SECRET_SETTINGS.
+const SECRET_KEYS = ['ANTHROPIC_API_KEY', 'WEBUNTIS_PASSWORD'] as const satisfies readonly (keyof Settings)[];
+type SecretKey = (typeof SECRET_KEYS)[number];
 
 type Category = 'webuntis' | 'planGeneration' | 'aiAssistant';
 
@@ -80,6 +90,22 @@ const CONFIG_FIELDS: ConfigField[] = [
       'Some WebUntis servers host multiple schools and need this to tell them apart. It can be left empty if your server hosts just one school.',
     type: 'text',
     placeholder: '(optional)',
+  },
+  {
+    category: 'webuntis',
+    key: 'WEBUNTIS_USERNAME',
+    label: 'Username',
+    description:
+      'Saved here so the app can fetch schedules without asking for it again on every restart.',
+    type: 'text',
+  },
+  {
+    category: 'webuntis',
+    key: 'WEBUNTIS_PASSWORD',
+    label: 'Password',
+    description:
+      'Kept on this computer only, encrypted at rest in a settings file readable just by your user account. It is never sent back to this dialog once saved.',
+    type: 'password',
   },
   {
     category: 'planGeneration',
@@ -125,8 +151,7 @@ const CONFIG_FIELDS: ConfigField[] = [
   },
 ];
 
-// The backend never sends the API key back, only whether one is stored.
-type SettingsResponse = Omit<Settings, 'ANTHROPIC_API_KEY'> & { ANTHROPIC_API_KEY_SET: boolean };
+type SettingsResponse = Omit<Settings, SecretKey> & { [K in SecretKey as `${K}_SET`]: boolean };
 
 export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps) {
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -135,10 +160,18 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
   const [isSaving, setIsSaving] = useState(false);
   const [category, setCategory] = useState<Category>('webuntis');
   const [showUnsavedPrompt, setShowUnsavedPrompt] = useState(false);
-  const [keyStored, setKeyStored] = useState(false);
-  const [clearKey, setClearKey] = useState(false);
+  const [storedFlags, setStoredFlags] = useState<Record<SecretKey, boolean>>(
+    Object.fromEntries(SECRET_KEYS.map((key) => [key, false])) as Record<SecretKey, boolean>
+  );
+  const [clearFlags, setClearFlags] = useState<Partial<Record<SecretKey, boolean>>>({});
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
   const { toast } = useToast();
   const backendHostAndPort = getBackendUrl();
+  // Username entered in the driving-plan auth dialog (PlanControls), used as
+  // a starting value here when nothing is saved server-side yet, so a
+  // returning user doesn't see a blank field for something they already typed.
+  const [localUsername] = useLocalStorage<string>('carpool-username', '');
 
   // Fetch the current server-side settings every time the dialog is opened,
   // since they can be changed by anyone using this app (shared backend).
@@ -146,19 +179,33 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
     if (!open) return;
 
     setCategory('webuntis');
+    setTestResult(null);
     setIsLoading(true);
     fetch(`${backendHostAndPort}/api/v1/settings`)
       .then((response) => {
         if (!response.ok) throw new Error('Failed to load settings');
         return response.json();
       })
-      .then(({ ANTHROPIC_API_KEY_SET, ...rest }: SettingsResponse) => {
-        // The key field always starts blank; a non-empty value means "replace".
-        const normalized: Settings = { ...rest, ANTHROPIC_API_KEY: '' };
+      .then((response: SettingsResponse) => {
+        const flags = Object.fromEntries(
+          SECRET_KEYS.map((key) => [key, !!response[`${key}_SET`]])
+        ) as Record<SecretKey, boolean>;
+        const rest = { ...response } as Record<string, unknown>;
+        for (const key of SECRET_KEYS) delete rest[`${key}_SET`];
+
+        // Secret fields always start blank; a non-empty value means "replace".
+        const normalized = { ...rest } as Settings;
+        for (const key of SECRET_KEYS) normalized[key] = '';
+        // Nothing saved server-side yet - offer the username already known
+        // from the driving-plan auth dialog instead of a blank field.
+        if (!normalized.WEBUNTIS_USERNAME && localUsername.trim()) {
+          normalized.WEBUNTIS_USERNAME = localUsername.trim();
+        }
+
         setSettings(normalized);
         setOriginalSettings(normalized);
-        setKeyStored(ANTHROPIC_API_KEY_SET);
-        setClearKey(false);
+        setStoredFlags(flags);
+        setClearFlags({});
       })
       .catch(() => {
         toast({ title: 'Could not load preferences', variant: 'destructive' });
@@ -175,17 +222,20 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
         )
       : []
   );
-  const hasUnsavedChanges = dirtyKeys.size > 0 || clearKey;
+  const hasUnsavedChanges = dirtyKeys.size > 0 || Object.values(clearFlags).some(Boolean);
 
   const savePreferences = async () => {
     if (!settings) return;
 
-    // An untouched key field must not wipe the stored key, so it is only sent
-    // when the user typed a replacement or explicitly asked to remove it.
-    const { ANTHROPIC_API_KEY, ...payload } = settings;
-    const body: Record<string, unknown> = { ...payload };
-    if (ANTHROPIC_API_KEY) body.ANTHROPIC_API_KEY = ANTHROPIC_API_KEY;
-    else if (clearKey) body.ANTHROPIC_API_KEY = '';
+    // An untouched secret field must not wipe the stored value, so it is
+    // only sent when the user typed a replacement or explicitly asked to
+    // remove it.
+    const body: Record<string, unknown> = { ...settings };
+    for (const key of SECRET_KEYS) {
+      if (settings[key]) body[key] = settings[key];
+      else if (clearFlags[key]) body[key] = '';
+      else delete body[key];
+    }
 
     setIsSaving(true);
     try {
@@ -249,7 +299,10 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
                     <button
                       key={id}
                       type="button"
-                      onClick={() => setCategory(id)}
+                      onClick={() => {
+                        setCategory(id);
+                        setTestResult(null);
+                      }}
                       className={cn(
                         'flex w-full items-center gap-2 px-4 py-2 text-sm text-left transition-colors',
                         category === id
@@ -275,7 +328,10 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
                   const inputId = `pref-${field.key}`;
                   const value = settings[field.key];
                   const isDirty = dirtyKeys.has(field.key);
-                  const isApiKey = field.key === 'ANTHROPIC_API_KEY';
+                  const isSecret = (SECRET_KEYS as readonly string[]).includes(field.key);
+                  const secretKey = field.key as SecretKey;
+                  const keyStored = isSecret && storedFlags[secretKey];
+                  const clearKey = isSecret && !!clearFlags[secretKey];
                   return (
                     <div key={field.key} className="space-y-2">
                       <div className="flex items-center justify-between">
@@ -310,7 +366,7 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
                         min={field.type === 'number' ? 0 : undefined}
                         value={value}
                         placeholder={
-                          isApiKey && keyStored && !clearKey
+                          keyStored && !clearKey
                             ? '•••••••••••••••• (saved - type to replace)'
                             : field.placeholder
                         }
@@ -324,16 +380,16 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
                       />
                       <p className="text-xs text-muted-foreground">
                         {field.description}
-                        {isApiKey && keyStored && !value && (
+                        {keyStored && !value && (
                           <>
                             {' '}
                             {clearKey ? (
                               <span className="text-destructive">
-                                The saved key will be removed when you save.{' '}
+                                The saved value will be removed when you save.{' '}
                                 <button
                                   type="button"
                                   className="underline hover:no-underline"
-                                  onClick={() => setClearKey(false)}
+                                  onClick={() => setClearFlags({ ...clearFlags, [secretKey]: false })}
                                 >
                                   Keep it
                                 </button>
@@ -342,9 +398,9 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
                               <button
                                 type="button"
                                 className="underline hover:no-underline"
-                                onClick={() => setClearKey(true)}
+                                onClick={() => setClearFlags({ ...clearFlags, [secretKey]: true })}
                               >
-                                Remove the saved key
+                                Remove the saved value
                               </button>
                             )}
                           </>
@@ -353,6 +409,112 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
                     </div>
                   );
                 })}
+
+                {category === 'webuntis' && (
+                  <div className="space-y-2 pt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={isTestingConnection}
+                      onClick={async () => {
+                        setIsTestingConnection(true);
+                        setTestResult(null);
+                        try {
+                          const result = await testWebuntisConnection({
+                            server: settings.WEBUNTIS_SERVER,
+                            school: settings.WEBUNTIS_SCHOOL,
+                            username: settings.WEBUNTIS_USERNAME,
+                            password: settings.WEBUNTIS_PASSWORD,
+                          });
+                          setTestResult({
+                            success: result.success,
+                            message: result.success
+                              ? 'Connection successful.'
+                              : result.error || 'Connection failed.',
+                          });
+                        } catch (error) {
+                          setTestResult({
+                            success: false,
+                            message: error instanceof Error ? error.message : 'Could not reach the backend.',
+                          });
+                        } finally {
+                          setIsTestingConnection(false);
+                        }
+                      }}
+                    >
+                      {isTestingConnection ? 'Testing...' : 'Test connection'}
+                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      Uses any values typed above, falling back to what is already saved for fields left blank.
+                    </p>
+                    {testResult && (
+                      <p
+                        className={cn(
+                          'flex items-center gap-1.5 text-xs',
+                          testResult.success ? 'text-emerald-600' : 'text-destructive'
+                        )}
+                      >
+                        {testResult.success ? (
+                          <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0" />
+                        ) : (
+                          <XCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                        )}
+                        {testResult.message}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {category === 'aiAssistant' && (
+                  <div className="space-y-2 pt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={isTestingConnection}
+                      onClick={async () => {
+                        setIsTestingConnection(true);
+                        setTestResult(null);
+                        try {
+                          const result = await testAssistantConnection({
+                            apiKey: settings.ANTHROPIC_API_KEY,
+                            cliPath: settings.CLAUDE_CLI_PATH,
+                          });
+                          setTestResult({ success: result.success, message: result.message });
+                        } catch (error) {
+                          setTestResult({
+                            success: false,
+                            message: error instanceof Error ? error.message : 'Could not reach the backend.',
+                          });
+                        } finally {
+                          setIsTestingConnection(false);
+                        }
+                      }}
+                    >
+                      {isTestingConnection ? 'Testing...' : 'Test connection'}
+                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      Uses the API key typed above (falling back to what is already saved if left
+                      blank) and the CLI path above.
+                    </p>
+                    {testResult && (
+                      <p
+                        className={cn(
+                          'flex items-center gap-1.5 text-xs',
+                          testResult.success ? 'text-emerald-600' : 'text-destructive'
+                        )}
+                      >
+                        {testResult.success ? (
+                          <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0" />
+                        ) : (
+                          <XCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                        )}
+                        {testResult.message}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}

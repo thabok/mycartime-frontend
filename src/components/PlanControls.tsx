@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils';
 import { getBackendUrl } from '@/lib/config';
 import { useToast } from '@/hooks/use-toast';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
-import { useSessionStorage } from '@/hooks/useSessionStorage';
+import { useWebuntisCredentials } from '@/hooks/useWebuntisCredentials';
 import { refreshTimetableCache } from '@/lib/timetableCache';
 import { useSpinnerVerbs } from '@/hooks/useSpinnerVerbs';
 import { PlanGenerationDialog } from '@/components/PlanGenerationDialog';
@@ -41,8 +41,7 @@ interface PlanControlsProps {
 }
 
 export function PlanControls({ members, plan, onPlanChange, onViewPlan, onReferenceDateChange }: PlanControlsProps) {
-  const [username, setUsername] = useLocalStorage<string>('carpool-username', '');
-  const [password, setPassword] = useSessionStorage<string>('carpool-password', '');
+  const { username, setUsername, password, setPassword, hasCredentials, hasStoredPassword, credentialFields } = useWebuntisCredentials();
   const [referenceDateString, setReferenceDateString] = useLocalStorage<string | null>('carpool-reference-date', null);
   const [referenceDate, setReferenceDate] = useState<Date | undefined>(() => {
     if (referenceDateString) {
@@ -79,16 +78,15 @@ export function PlanControls({ members, plan, onPlanChange, onViewPlan, onRefere
   // giving up permanently after one failed attempt.
   useEffect(() => {
     if (referenceDateString) return;
-    if (!username.trim() || !password.trim()) return;
+    if (!hasCredentials) return;
 
     let cancelled = false;
     const timer = setTimeout(async () => {
       try {
-        const hash = btoa(password);
         const response = await fetch(`${backendHostAndPort}/api/v1/suggestedreferencedate`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: username.trim(), hash }),
+          body: JSON.stringify({ ...credentialFields }),
         });
         if (cancelled || !response.ok) return;
         const { referenceDate: suggested } = await response.json() as { referenceDate: string };
@@ -105,10 +103,11 @@ export function PlanControls({ members, plan, onPlanChange, onViewPlan, onRefere
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [username, password, referenceDateString, backendHostAndPort]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [username, password, hasCredentials, referenceDateString, backendHostAndPort]);
 
   const isDateValid = !!referenceDate;
-  const canGenerate = username.trim() && password.trim() && isDateValid && members.length > 0 && !plan;
+  const canGenerate = hasCredentials && isDateValid && members.length > 0 && !plan;
 
   const formatDateForApi = (date: Date): number => {
     const yyyy = date.getFullYear().toString();
@@ -143,12 +142,10 @@ export function PlanControls({ members, plan, onPlanChange, onViewPlan, onRefere
     pickStatusMessage();
 
     try {
-      const hash = btoa(password);
       const payload = {
         persons: members,
         scheduleReferenceStartDate: formatDateForApi(referenceDate),
-        username: username.trim(),
-        hash,
+        ...credentialFields,
       };
 
       // Streaming endpoint rather than /api/v1/drivingplan: the solver can run for
@@ -231,7 +228,7 @@ export function PlanControls({ members, plan, onPlanChange, onViewPlan, onRefere
       // Best-effort: refresh the per-member timetable detail cache now, while
       // the credentials are on hand, so the Timetable tab in Member details
       // can be viewed later without logging in again.
-      refreshTimetableCache(members, referenceDate, username.trim(), password).catch((err) => {
+      refreshTimetableCache(members, referenceDate, credentialFields).catch((err) => {
         console.error('Failed to refresh timetable cache:', err);
       });
     } catch (error) {
@@ -301,7 +298,9 @@ export function PlanControls({ members, plan, onPlanChange, onViewPlan, onRefere
             <CardTitle className="text-base">Schedule Access</CardTitle>
           </div>
           <CardDescription>
-            Enter credentials to fetch teacher schedules from webuntis
+            {hasStoredPassword
+              ? 'Using the WebUntis credentials saved in Settings. Type a password below to use different ones instead.'
+              : 'Enter credentials to fetch teacher schedules from webuntis'}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -323,7 +322,7 @@ export function PlanControls({ members, plan, onPlanChange, onViewPlan, onRefere
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password"
+                placeholder={hasStoredPassword ? '•••••••• (saved)' : 'Password'}
                 disabled={!!plan}
               />
             </div>
@@ -399,7 +398,7 @@ export function PlanControls({ members, plan, onPlanChange, onViewPlan, onRefere
             
             {!canGenerate && !isGenerating && (
               <p className="text-xs text-muted-foreground text-center">
-                {!username.trim() || !password.trim() 
+                {!hasCredentials
                   ? 'Enter credentials above'
                   : !isDateValid 
                     ? 'Select a reference date'
