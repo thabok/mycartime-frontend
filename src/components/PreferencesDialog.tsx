@@ -45,20 +45,14 @@ interface Settings {
   TIME_TOLERANCE_MINUTES: number;
   MAX_DRIVES_FULLTIME: number;
   MAX_DRIVES_PARTTIME: number;
-  ANTHROPIC_API_KEY: string;
   CLAUDE_CLI_PATH: string;
 }
 
 // Fields the backend never sends back, only whether a value is stored - see
 // user_settings.SECRET_SETTINGS.
-const SECRET_KEYS = ['ANTHROPIC_API_KEY', 'WEBUNTIS_PASSWORD'] as const satisfies readonly (keyof Settings)[];
+const SECRET_KEYS = ['WEBUNTIS_PASSWORD'] as const satisfies readonly (keyof Settings)[];
 type SecretKey = (typeof SECRET_KEYS)[number];
 
-// Anthropic keys are much longer than a typical password, so the default
-// 8-dot mask looks wrong next to a real one - use a longer mask just for it.
-const STORED_VALUE_PLACEHOLDERS: Partial<Record<SecretKey, string>> = {
-  ANTHROPIC_API_KEY: '••••••••••••••••••••••••••••••••••••••••',
-};
 const DEFAULT_STORED_VALUE_PLACEHOLDER = '••••••••';
 
 type Category = 'webuntis' | 'planGeneration' | 'aiAssistant';
@@ -69,10 +63,7 @@ const CATEGORIES: { id: Category; label: string; icon: typeof Globe }[] = [
   { id: 'aiAssistant', label: 'AI Assistant', icon: Sparkles },
 ];
 
-const CATEGORY_NOTES: Partial<Record<Category, string>> = {
-  aiAssistant:
-    'The assistant uses your Anthropic API key when one is stored. If no key is stored, or the key stops working, it falls back to the claude CLI at the path below.',
-};
+const CATEGORY_NOTES: Partial<Record<Category, string>> = {};
 
 interface ConfigField {
   category: Category;
@@ -142,15 +133,6 @@ const CONFIG_FIELDS: ConfigField[] = [
   },
   {
     category: 'aiAssistant',
-    key: 'ANTHROPIC_API_KEY',
-    label: 'Anthropic API key',
-    description:
-      '',
-    type: 'password',
-    placeholder: 'sk-ant-...',
-  },
-  {
-    category: 'aiAssistant',
     key: 'CLAUDE_CLI_PATH',
     label: 'Path to the claude CLI',
     description:
@@ -204,7 +186,7 @@ export function PreferencesDialog({ open, onOpenChange, onSaved }: PreferencesDi
         for (const key of SECRET_KEYS) delete rest[`${key}_SET`];
 
         // Secret fields always start blank; a non-empty value means "replace".
-        const normalized = { ...rest } as Settings;
+        const normalized = { ...rest } as unknown as Settings;
         for (const key of SECRET_KEYS) normalized[key] = '';
         // Nothing saved server-side yet - offer the username already known
         // from the driving-plan auth dialog instead of a blank field.
@@ -377,7 +359,7 @@ export function PreferencesDialog({ open, onOpenChange, onSaved }: PreferencesDi
                         value={value}
                         placeholder={
                           keyStored && !clearKey
-                            ? STORED_VALUE_PLACEHOLDERS[secretKey] ?? DEFAULT_STORED_VALUE_PLACEHOLDER
+                            ? DEFAULT_STORED_VALUE_PLACEHOLDER
                             : field.placeholder
                         }
                         onChange={(e) =>
@@ -485,7 +467,6 @@ export function PreferencesDialog({ open, onOpenChange, onSaved }: PreferencesDi
                         setTestResult(null);
                         try {
                           const result = await testAssistantConnection({
-                            apiKey: settings.ANTHROPIC_API_KEY,
                             cliPath: settings.CLAUDE_CLI_PATH,
                           });
                           setTestResult({ success: result.success, message: result.message });

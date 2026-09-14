@@ -5,11 +5,11 @@ export interface TestConnectionResult {
   message: string;
 }
 
-/** Live-checks the Anthropic API key and/or claude CLI - see
- * POST /api/v1/assistant/test-connection in app.py. Omitted fields fall
- * back to what is currently stored in Settings. */
+/** Live-checks the claude CLI - see POST /api/v1/assistant/test-connection
+ * in app.py. Omitted fields fall back to what is currently stored in
+ * Settings. */
 export async function testAssistantConnection(
-  params: { apiKey?: string; cliPath?: string }
+  params: { cliPath?: string }
 ): Promise<TestConnectionResult> {
   const response = await fetch(`${getBackendUrl()}/api/v1/assistant/test-connection`, {
     method: 'POST',
