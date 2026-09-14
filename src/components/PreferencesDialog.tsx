@@ -27,6 +27,7 @@ import { getBackendUrl } from '@/lib/config';
 import { testWebuntisConnection } from '@/lib/webuntisApi';
 import { testAssistantConnection } from '@/lib/assistantApi';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useSessionStorage } from '@/hooks/useSessionStorage';
 
 interface PreferencesDialogProps {
   open: boolean;
@@ -161,10 +162,12 @@ export function PreferencesDialog({ open, onOpenChange, onSaved }: PreferencesDi
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const { toast } = useToast();
   const backendHostAndPort = getBackendUrl();
-  // Username entered in the driving-plan auth dialog (PlanControls), used as
-  // a starting value here when nothing is saved server-side yet, so a
-  // returning user doesn't see a blank field for something they already typed.
-  const [localUsername] = useLocalStorage<string>('carpool-username', '');
+  // Same storage the driving-plan page's "Schedule Access" card
+  // (useWebuntisCredentials) reads/writes, so the two are always in sync:
+  // these fields are a convenience for testing the connection here, not a
+  // second, independent copy of the credentials.
+  const [sharedUsername, setSharedUsername] = useLocalStorage<string>('carpool-username', '');
+  const [sharedPassword, setSharedPassword] = useSessionStorage<string>('carpool-password', '');
 
   // Fetch the current server-side settings every time the dialog is opened,
   // since they can be changed by anyone using this app (shared backend).
@@ -188,11 +191,11 @@ export function PreferencesDialog({ open, onOpenChange, onSaved }: PreferencesDi
         // Secret fields always start blank; a non-empty value means "replace".
         const normalized = { ...rest } as unknown as Settings;
         for (const key of SECRET_KEYS) normalized[key] = '';
-        // Nothing saved server-side yet - offer the username already known
-        // from the driving-plan auth dialog instead of a blank field.
-        if (!normalized.WEBUNTIS_USERNAME && localUsername.trim()) {
-          normalized.WEBUNTIS_USERNAME = localUsername.trim();
-        }
+        // The driving-plan page's credentials are the live, current value -
+        // prefer them over whatever is saved server-side so both fields
+        // always show the same thing.
+        if (sharedUsername.trim()) normalized.WEBUNTIS_USERNAME = sharedUsername.trim();
+        if (sharedPassword.trim()) normalized.WEBUNTIS_PASSWORD = sharedPassword;
 
         setSettings(normalized);
         setOriginalSettings(normalized);
@@ -206,6 +209,16 @@ export function PreferencesDialog({ open, onOpenChange, onSaved }: PreferencesDi
       .finally(() => setIsLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  // Username/password changes also write straight through to the shared
+  // storage the driving-plan page reads, so they take effect there
+  // immediately - these two fields are just a view onto the same value, not
+  // a separate draft that only applies on Save.
+  const updateField = (key: keyof Settings, value: Settings[keyof Settings]) => {
+    setSettings((prev) => (prev ? { ...prev, [key]: value } : prev));
+    if (key === 'WEBUNTIS_USERNAME') setSharedUsername(String(value));
+    if (key === 'WEBUNTIS_PASSWORD') setSharedPassword(String(value));
+  };
 
   const dirtyKeys = new Set(
     settings && originalSettings
@@ -266,6 +279,10 @@ export function PreferencesDialog({ open, onOpenChange, onSaved }: PreferencesDi
 
   const discardAndExit = () => {
     setShowUnsavedPrompt(false);
+    if (originalSettings) {
+      setSharedUsername(originalSettings.WEBUNTIS_USERNAME);
+      setSharedPassword(originalSettings.WEBUNTIS_PASSWORD);
+    }
     setSettings(originalSettings);
     onOpenChange(false);
   };
@@ -337,12 +354,7 @@ export function PreferencesDialog({ open, onOpenChange, onSaved }: PreferencesDi
                               <button
                                 type="button"
                                 aria-label={`Reset ${field.label} to previous state`}
-                                onClick={() =>
-                                  setSettings({
-                                    ...settings,
-                                    [field.key]: originalSettings![field.key],
-                                  })
-                                }
+                                onClick={() => updateField(field.key, originalSettings![field.key])}
                                 className="text-muted-foreground hover:text-foreground"
                               >
                                 <Undo className="h-4 w-4" />
@@ -363,11 +375,10 @@ export function PreferencesDialog({ open, onOpenChange, onSaved }: PreferencesDi
                             : field.placeholder
                         }
                         onChange={(e) =>
-                          setSettings({
-                            ...settings,
-                            [field.key]:
-                              field.type === 'number' ? Number(e.target.value) : e.target.value,
-                          })
+                          updateField(
+                            field.key,
+                            field.type === 'number' ? Number(e.target.value) : e.target.value
+                          )
                         }
                       />
                       <p className="text-xs text-muted-foreground">
