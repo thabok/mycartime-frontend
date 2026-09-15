@@ -21,10 +21,21 @@ export function getBackendUrl(): string {
  * Must run before anything calls getBackendUrl. In the packaged app the sidecar
  * falls back to a random free port when 1338 is taken, so the Rust side is the
  * only thing that knows where the backend actually ended up.
+ *
+ * The sidecar is spawned in the background and can take up to a minute or so
+ * to finish importing its dependencies and bind its port (see src-tauri's
+ * `wait_for_backend`), so `backend_port` returns `null` until then - poll it
+ * rather than expecting it to resolve immediately.
  */
 export async function initBackendUrl(): Promise<void> {
   if (!isTauri()) return;
   const { invoke } = await import('@tauri-apps/api/core');
-  const port = await invoke<number>('backend_port');
-  resolvedBackendUrl = `http://127.0.0.1:${port}`;
+  while (true) {
+    const port = await invoke<number | null>('backend_port');
+    if (port !== null) {
+      resolvedBackendUrl = `http://127.0.0.1:${port}`;
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
 }

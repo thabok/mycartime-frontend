@@ -4,5 +4,6 @@ import "./index.css";
 import { initBackendUrl } from "@/lib/config";
 
 initBackendUrl().finally(() => {
+  document.getElementById("splash")?.remove();
   createRoot(document.getElementById("root")!).render(<App />);
 });
