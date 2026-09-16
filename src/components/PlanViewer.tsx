@@ -12,6 +12,7 @@ import { Pencil, Users, FileText, Download, Image, Trash2, Flag, UserRoundX, Clo
 import { cn, downloadJson } from '@/lib/utils';
 import { buildPlanPngZip, saveZip } from '@/lib/exportPng';
 import { PlanQualityMetrics } from './PlanQualityMetrics';
+import { OptimizationPriorities } from './OptimizationPriorities';
 import { DayPlanEditDialog } from './DayPlanEditDialog';
 import { MemberDialog } from './MemberDialog';
 import { WeekSeparator } from './WeekSeparator';
@@ -660,8 +661,9 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
             );
           })()}
           {plan.qualityMetrics && (
-            <div className="mt-4">
+            <div className="mt-4 space-y-2">
               <PlanQualityMetrics metrics={plan.qualityMetrics} />
+              <OptimizationPriorities />
             </div>
           )}
         </TabsContent>
