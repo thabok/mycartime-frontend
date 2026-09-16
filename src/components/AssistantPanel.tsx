@@ -212,9 +212,19 @@ export function AssistantPanel({
       <ScrollArea ref={scrollAreaRef} className="flex-1 min-h-0">
         <div className="p-4 space-y-4">
           {messages.length === 0 && (
+            <div>
             <p className="text-sm text-muted-foreground">
-              How may I help you today?
+              How may I help you today? You can ask me about the current state of the members, the driving plan.
             </p>
+            <br/>
+            <p className="text-sm text-muted-foreground">
+              Need some inspiration? How about this:
+            </p>
+            <br/>
+            <p className="text-sm text-muted-foreground">
+               <i><b>Jane</b> and <b>John</b> are deeply in love, so move them into the same party where possible.</i>
+            </p>
+            </div>
           )}
           {messages.map((message) => (
             <div key={message.id} className={cn('flex', message.role === 'user' ? 'justify-end' : 'justify-start')}>

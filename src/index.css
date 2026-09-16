@@ -213,6 +213,107 @@
   .animate-cursor-blink {
     animation: cursorBlink 1s steps(1, jump-none) infinite;
   }
+
+  .animate-tutorial-highlight {
+    animation: tutorialHighlight 1.5s ease-in-out infinite;
+  }
+
+  .tutorial-celebration-message {
+    animation: tutorialCelebration 1.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .tutorial-confetti-piece {
+    position: absolute;
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 0.1rem;
+    background: hsl(var(--primary));
+    animation: tutorialConfetti 1.2s ease-out both;
+  }
+
+  .tutorial-confetti-piece:nth-child(3n + 1) { background: hsl(var(--warning)); }
+  .tutorial-confetti-piece:nth-child(3n + 2) { background: hsl(var(--destructive)); }
+  .tutorial-confetti-piece:nth-child(1) { --x: -80px; --y: -65px; --rotation: 140deg; }
+  .tutorial-confetti-piece:nth-child(2) { --x: -55px; --y: -105px; --rotation: 240deg; }
+  .tutorial-confetti-piece:nth-child(3) { --x: -25px; --y: -80px; --rotation: 100deg; }
+  .tutorial-confetti-piece:nth-child(4) { --x: 10px; --y: -110px; --rotation: 180deg; }
+  .tutorial-confetti-piece:nth-child(5) { --x: 48px; --y: -85px; --rotation: 300deg; }
+  .tutorial-confetti-piece:nth-child(6) { --x: 78px; --y: -55px; --rotation: 120deg; }
+  .tutorial-confetti-piece:nth-child(7) { --x: -95px; --y: 10px; --rotation: 270deg; }
+  .tutorial-confetti-piece:nth-child(8) { --x: -50px; --y: 25px; --rotation: 90deg; }
+  .tutorial-confetti-piece:nth-child(9) { --x: -10px; --y: 45px; --rotation: 210deg; }
+  .tutorial-confetti-piece:nth-child(10) { --x: 28px; --y: 30px; --rotation: 150deg; }
+  .tutorial-confetti-piece:nth-child(11) { --x: 65px; --y: 18px; --rotation: 330deg; }
+  .tutorial-confetti-piece:nth-child(12) { --x: 100px; --y: 5px; --rotation: 250deg; }
+
+  .tutorial-step-completion-trail {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    animation: tutorialStepCompletionTrail 1.05s linear 0.18s forwards;
+  }
+
+  .tutorial-step-rocket {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    z-index: 10;
+    font-size: 1rem;
+    line-height: 1;
+    animation: tutorialRocketJourney 1.25s ease-in-out forwards;
+  }
+
+  .tutorial-rocket-confetti-piece {
+    position: absolute;
+    width: 0.25rem;
+    height: 0.25rem;
+    border-radius: 999px;
+    background: hsl(var(--warning));
+    animation: tutorialRocketConfetti 0.45s ease-out infinite;
+  }
+
+  .tutorial-rocket-confetti-piece:nth-of-type(1) { --x: -10px; --y: -12px; background: hsl(var(--warning)); }
+  .tutorial-rocket-confetti-piece:nth-of-type(2) { --x: 8px; --y: -16px; background: hsl(var(--destructive)); animation-delay: 0.1s; }
+  .tutorial-rocket-confetti-piece:nth-of-type(3) { --x: 15px; --y: 4px; background: hsl(var(--primary)); animation-delay: 0.2s; }
+  .tutorial-rocket-confetti-piece:nth-of-type(4) { --x: -14px; --y: 9px; background: hsl(var(--warning)); animation-delay: 0.05s; }
+  .tutorial-rocket-confetti-piece:nth-of-type(5) { --x: 2px; --y: 15px; background: hsl(var(--destructive)); animation-delay: 0.15s; }
+  .tutorial-rocket-confetti-piece:nth-of-type(6) { --x: 18px; --y: -4px; background: hsl(var(--primary)); animation-delay: 0.25s; }
+}
+
+@keyframes tutorialHighlight {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes tutorialCelebration {
+  0% { transform: translateY(8px) scale(0.75); opacity: 0; }
+  18%, 75% { transform: translateY(0) scale(1); opacity: 1; }
+  100% { transform: translateY(-8px) scale(0.96); opacity: 0; }
+}
+
+@keyframes tutorialConfetti {
+  0% { transform: translate(-50%, -50%) scale(0.3) rotate(0deg); opacity: 0; }
+  15% { opacity: 1; }
+  100% { transform: translate(calc(-50% + var(--x)), calc(-50% + var(--y))) scale(0.9) rotate(var(--rotation)); opacity: 0; }
+}
+
+@keyframes tutorialStepCompletionTrail {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+@keyframes tutorialRocketJourney {
+  0% { left: 0; transform: translate(-25%, -50%) scale(0.8); }
+  12% { transform: translate(-25%, -65%) scale(1.05); }
+  100% { left: 100%; transform: translate(-75%, -50%) scale(0.9); }
+}
+
+@keyframes tutorialRocketConfetti {
+  from { transform: translate(0, 0) scale(0.5); opacity: 0; }
+  30% { opacity: 1; }
+  to { transform: translate(var(--x), var(--y)) scale(1); opacity: 0; }
 }
 
 @keyframes sparkBreathe {

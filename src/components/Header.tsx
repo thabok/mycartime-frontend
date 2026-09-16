@@ -12,14 +12,40 @@ interface HeaderProps {
   onViewModeChange: (mode: ViewMode) => void;
   hasPlan: boolean;
   onPreferencesSaved: () => void;
+  onWebuntisSaved?: () => void;
+  onResetTutorial?: () => void;
+  tutorialHighlightSettings?: boolean;
+  tutorialOpenSettingsRequest?: number;
+  tutorialOpenAiAssistantSettings?: boolean;
+  onPreferencesOpenChange?: (open: boolean) => void;
 }
 
-export function Header({ viewMode, onViewModeChange, hasPlan, onPreferencesSaved }: HeaderProps) {
+export function Header({
+  viewMode,
+  onViewModeChange,
+  hasPlan,
+  onPreferencesSaved,
+  onWebuntisSaved,
+  onResetTutorial,
+  tutorialHighlightSettings = false,
+  tutorialOpenSettingsRequest,
+  tutorialOpenAiAssistantSettings = false,
+  onPreferencesOpenChange,
+}: HeaderProps) {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [preferencesOpen, setPreferencesOpen] = useState(false);
 
   // Theme follows the OS by default; once toggled, the explicit choice sticks.
   const { isDark, toggleTheme } = useTheme();
+
+  useEffect(() => {
+    if (tutorialOpenSettingsRequest !== undefined) setPreferencesOpen(true);
+  }, [tutorialOpenSettingsRequest]);
+
+  const handlePreferencesOpenChange = (open: boolean) => {
+    setPreferencesOpen(open);
+    onPreferencesOpenChange?.(open);
+  };
 
   return (
     <header className="flex-shrink-0 border-b border-border bg-card/50 backdrop-blur-sm z-50">
@@ -49,9 +75,10 @@ export function Header({ viewMode, onViewModeChange, hasPlan, onPreferencesSaved
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setPreferencesOpen(true)}
-              className="h-9 w-9 p-0"
+              onClick={() => handlePreferencesOpenChange(true)}
+              className={cn('h-9 w-9 p-0', tutorialHighlightSettings && 'ring-2 ring-primary ring-offset-2 animate-tutorial-highlight')}
               title="Configure Settings"
+              data-tutorial-highlight={tutorialHighlightSettings || undefined}
             >
               <Settings className="h-4 w-4" />
             </Button>
@@ -99,8 +126,11 @@ export function Header({ viewMode, onViewModeChange, hasPlan, onPreferencesSaved
       <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
       <PreferencesDialog
         open={preferencesOpen}
-        onOpenChange={setPreferencesOpen}
+        onOpenChange={handlePreferencesOpenChange}
         onSaved={onPreferencesSaved}
+        onWebuntisSaved={onWebuntisSaved}
+        onResetTutorial={onResetTutorial}
+        initialCategory={tutorialOpenAiAssistantSettings ? 'aiAssistant' : undefined}
       />
     </header>
   );

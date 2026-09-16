@@ -38,9 +38,10 @@ interface PlanControlsProps {
   onPlanChange: (plan: DrivingPlan | null) => void;
   onViewPlan: () => void;
   onReferenceDateChange?: (date: Date | undefined) => void;
+  tutorialHighlightGenerate?: boolean;
 }
 
-export function PlanControls({ members, plan, onPlanChange, onViewPlan, onReferenceDateChange }: PlanControlsProps) {
+export function PlanControls({ members, plan, onPlanChange, onViewPlan, onReferenceDateChange, tutorialHighlightGenerate = false }: PlanControlsProps) {
   const { username, setUsername, password, setPassword, hasCredentials, hasStoredPassword, credentialFields } = useWebuntisCredentials();
   const [referenceDateString, setReferenceDateString] = useLocalStorage<string | null>('carpool-reference-date', null);
   const [referenceDate, setReferenceDate] = useState<Date | undefined>(() => {
@@ -379,9 +380,10 @@ export function PlanControls({ members, plan, onPlanChange, onViewPlan, onRefere
             <Button
               onClick={handleGenerate}
               disabled={!canGenerate || isGenerating}
-              className="w-full"
+              className={cn('w-full', tutorialHighlightGenerate && 'ring-2 ring-primary ring-offset-2 animate-tutorial-highlight')}
               variant="gradient"
               size="lg"
+              data-tutorial-highlight={tutorialHighlightGenerate || undefined}
             >
               {isGenerating ? (
                 <>

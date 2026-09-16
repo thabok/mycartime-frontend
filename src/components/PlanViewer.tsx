@@ -34,6 +34,10 @@ interface PlanViewerProps {
   modifiedPartyKeys?: Set<string>;
   /** Clears `modifiedPartyKeys` in the parent. */
   onClearHighlights?: () => void;
+  tutorialHighlightEdit?: boolean;
+  tutorialHighlightExport?: boolean;
+  onManualPlanChange?: () => void;
+  onPngExported?: () => void;
 }
 
 const formatCreationPhase = (phase: number ): string => {
@@ -69,7 +73,7 @@ interface SelectedMemberInfo {
 type WeekFilter = 'summary' | 'all' | 'A' | 'B';
 const WEEK_FILTERS: WeekFilter[] = ['summary', 'all', 'A', 'B'];
 
-export function PlanViewer({ plan, onPlanChange, members, onMembersChange, referenceDate, modifiedPartyKeys, onClearHighlights }: PlanViewerProps) {
+export function PlanViewer({ plan, onPlanChange, members, onMembersChange, referenceDate, modifiedPartyKeys, onClearHighlights, tutorialHighlightEdit = false, tutorialHighlightExport = false, onManualPlanChange, onPngExported }: PlanViewerProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
   const weekFilter: WeekFilter = WEEK_FILTERS.includes(tabParam as WeekFilter) ? (tabParam as WeekFilter) : 'summary';
@@ -386,6 +390,7 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
       if (!saved) return;
 
       toast({ title: 'Exported', description: 'Week A and Week B saved as a ZIP of PNGs.' });
+      onPngExported?.();
     } catch (err) {
       console.error('Failed to export plan as PNG:', err);
       toast({ title: 'Export failed', description: 'Could not generate the PNGs.', variant: 'destructive' });
@@ -399,6 +404,7 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
   const handleApplyTransfers = (dayPlan: DayPlan, transfers: Transfer[]) => {
     if (!canApplyTransfers(dayPlan, transfers, members)) return;
     onPlanChange(applyTransfers(plan, dayPlan.dayOfWeekABCombo.uniqueNumber, transfers));
+    onManualPlanChange?.();
   };
 
   const renderPartyLine = (party: Party, dayPlan: DayPlan, dayKey: string, filterQuery: string, isLast: boolean) => {
@@ -483,7 +489,7 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
     );
   };
 
-  const renderDayRow = ([dayKey, dayPlan]: [string, DayPlan]) => {
+  const renderDayRow = ([dayKey, dayPlan]: [string, DayPlan], isFirstVisibleDay = false) => {
     const { dayOfWeekABCombo, parties } = dayPlan;
     const schoolboundParties = parties
       .filter(p => p.schoolbound === true)
@@ -527,8 +533,9 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
         <td className="py-1.5 px-2 align-top">
           <button 
             onClick={() => handleEditDay(dayPlan)}
-            className="p-1.5 rounded hover:bg-muted transition-all text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100"
+            className={cn('p-1.5 rounded hover:bg-muted transition-all text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100', tutorialHighlightEdit && isFirstVisibleDay && 'opacity-100 ring-2 ring-primary ring-offset-2 animate-tutorial-highlight')}
             title="Edit day plan"
+            data-tutorial-highlight={tutorialHighlightEdit && isFirstVisibleDay || undefined}
           >
             <Pencil className="h-4 w-4" />
           </button>
@@ -574,7 +581,7 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
             <Button variant="outline" size="sm" onClick={handleExportPlan} className="h-9" title="Export JSON">
               <Download className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="sm" onClick={handleExportPng} className="h-9" title="Export Week A / Week B as PNG">
+            <Button variant="outline" size="sm" onClick={handleExportPng} className={cn('h-9', tutorialHighlightExport && 'ring-2 ring-primary ring-offset-2 animate-tutorial-highlight')} title="Export Week A / Week B as PNG" data-tutorial-highlight={tutorialHighlightExport || undefined}>
               <Image className="h-4 w-4" />
             </Button>
             <Button variant="outline" size="sm" onClick={handleDiscardPlan} className="h-9" title="Discard Plan">
@@ -685,7 +692,7 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
                             </td>
                           </tr>
                         )}
-                        {renderDayRow([dayKey, dayPlan])}
+                        {renderDayRow([dayKey, dayPlan], idx === 0)}
                       </Fragment>
                     );
                   })}

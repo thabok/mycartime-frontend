@@ -117,9 +117,10 @@ interface MembersPanelProps {
   hasPlan: boolean;
   onNavigateToPlan: () => void;
   referenceDate?: Date;
+  tutorialHighlightMemberActions?: boolean;
 }
 
-export function MembersPanel({ members, onMembersChange, hasPlan, onNavigateToPlan, referenceDate }: MembersPanelProps) {
+export function MembersPanel({ members, onMembersChange, hasPlan, onNavigateToPlan, referenceDate, tutorialHighlightMemberActions = false }: MembersPanelProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const viewMode: MemberViewMode = searchParams.get('view') === 'list' ? 'list' : 'card';
   const searchQuery = searchParams.get('q') ?? '';
@@ -338,11 +339,11 @@ export function MembersPanel({ members, onMembersChange, hasPlan, onNavigateToPl
           </p>
           {members.length === 0 && (
             <div className="flex items-center gap-3 mt-4">
-              <Button variant="outline" onClick={handleAddMember}>
+              <Button variant="outline" onClick={handleAddMember} className={cn(tutorialHighlightMemberActions && 'ring-2 ring-primary ring-offset-2 animate-tutorial-highlight')}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add First Member
               </Button>
-              <Button variant="outline" onClick={handleImport}>
+              <Button variant="outline" onClick={handleImport} className={cn(tutorialHighlightMemberActions && 'ring-2 ring-primary ring-offset-2 animate-tutorial-highlight')}>
                 <Upload className="h-4 w-4 mr-2" />
                 Import from JSON
               </Button>

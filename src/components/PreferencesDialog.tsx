@@ -36,6 +36,9 @@ interface PreferencesDialogProps {
   // immediately (e.g. re-check whether the AI assistant button should be
   // shown) instead of waiting for the next app load.
   onSaved: () => void;
+  onWebuntisSaved?: () => void;
+  onResetTutorial?: () => void;
+  initialCategory?: Category;
 }
 
 interface Settings {
@@ -139,13 +142,13 @@ const CONFIG_FIELDS: ConfigField[] = [
     description:
       'Full path to the executable, e.g. /opt/homebrew/bin/claude.',
     type: 'text',
-    placeholder: '/opt/homebrew/bin/claude',
+    placeholder: 'claude',
   },
 ];
 
 type SettingsResponse = Omit<Settings, SecretKey> & { [K in SecretKey as `${K}_SET`]: boolean };
 
-export function PreferencesDialog({ open, onOpenChange, onSaved }: PreferencesDialogProps) {
+export function PreferencesDialog({ open, onOpenChange, onSaved, onWebuntisSaved, onResetTutorial, initialCategory }: PreferencesDialogProps) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [originalSettings, setOriginalSettings] = useState<Settings | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -168,6 +171,10 @@ export function PreferencesDialog({ open, onOpenChange, onSaved }: PreferencesDi
   // second, independent copy of the credentials.
   const [sharedUsername, setSharedUsername] = useLocalStorage<string>('carpool-username', '');
   const [sharedPassword, setSharedPassword] = useSessionStorage<string>('carpool-password', '');
+
+  useEffect(() => {
+    if (open && initialCategory) setCategory(initialCategory);
+  }, [open, initialCategory, setCategory]);
 
   // Fetch the current server-side settings every time the dialog is opened,
   // since they can be changed by anyone using this app (shared backend).
@@ -258,6 +265,12 @@ export function PreferencesDialog({ open, onOpenChange, onSaved }: PreferencesDi
       setShowUnsavedPrompt(false);
       onOpenChange(false);
       onSaved();
+      const hasWebuntisDetails = Boolean(
+        settings.WEBUNTIS_SERVER.trim() &&
+        settings.WEBUNTIS_USERNAME.trim() &&
+        (settings.WEBUNTIS_PASSWORD.trim() || storedFlags.WEBUNTIS_PASSWORD)
+      );
+      if (category === 'webuntis' && hasWebuntisDetails) onWebuntisSaved?.();
     } catch (error) {
       toast({
         title: 'Could not save preferences',
@@ -299,7 +312,7 @@ export function PreferencesDialog({ open, onOpenChange, onSaved }: PreferencesDi
             <p className="text-sm text-muted-foreground px-6 pb-6">Loading...</p>
           ) : (
             <div className="flex h-[34rem] border-t border-border">
-              <nav className="w-44 flex-shrink-0 border-r border-border bg-muted/30 py-2 overflow-y-auto">
+              <nav className="flex w-44 flex-shrink-0 flex-col border-r border-border bg-muted/30 py-2 overflow-y-auto">
                 {CATEGORIES.map(({ id, label, icon: Icon }) => {
                   const categoryDirty = CONFIG_FIELDS.some(
                     (field) => field.category === id && dirtyKeys.has(field.key)
@@ -325,6 +338,11 @@ export function PreferencesDialog({ open, onOpenChange, onSaved }: PreferencesDi
                     </button>
                   );
                 })}
+                {onResetTutorial && (
+                  <Button variant="ghost" className="mx-2 mt-auto justify-start text-xs text-muted-foreground" onClick={onResetTutorial}>
+                    Reset tutorial
+                  </Button>
+                )}
               </nav>
 
               <div className="flex-1 space-y-4 p-6 overflow-y-auto">

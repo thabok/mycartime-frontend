@@ -4,7 +4,7 @@ import { getBackendUrl } from '@/lib/config';
 /**
  * Whimsical status phrases shown while something slow is happening, shared by
  * the AI assistant and plan generation so both feel like the same product.
- * The list lives on the backend (assistant/harry-potter-spinning-verbs.txt).
+ * The list lives on the backend (assistant/hp-spinning-verbs.txt).
  */
 export function useSpinnerVerbs() {
   const verbsRef = useRef<string[]>([]);
