@@ -540,8 +540,10 @@ export function PreferencesDialog({ open, onOpenChange, onSaved, onWebuntisSaved
 
                 {category === 'stuffAndThings' && (
                   <div className="space-y-2">
-                    <Label>Theme</Label>
-                    <div className="inline-flex rounded-md border border-border p-1 gap-1">
+                    <div className="flex items-center justify-between">
+                      <Label>Theme</Label>
+                    </div>
+                    <div className="flex rounded-md border border-border p-1 gap-1 w-fit">
                       {THEME_OPTIONS.map(({ id, label }) => (
                         <button
                           key={id}
