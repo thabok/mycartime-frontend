@@ -8,7 +8,7 @@ import { getWeekMonday } from '@/lib/planDates';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Pencil, Users, FileText, Download, Image, Trash2, Flag, UserRoundX, Clock, X } from 'lucide-react';
+import { Pencil, Users, FileText, Download, Image, Trash2, Flag, UserRoundX, Clock, X, AlertTriangle } from 'lucide-react';
 import { cn, downloadJson } from '@/lib/utils';
 import { buildPlanPngZip, saveZip } from '@/lib/exportPng';
 import { PlanQualityMetrics } from './PlanQualityMetrics';
@@ -142,6 +142,23 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
 
   // Create lookup map: initials -> Member
   const membersByInitials = useMemo(() => buildMembersByInitials(members), [members]);
+
+  // Initials referenced by the plan that no longer resolve to a current member
+  // (i.e. that member was removed after this plan was generated). The plan
+  // falls back to showing raw initials for them since their full data can no
+  // longer be retrieved.
+  const missingMemberInitials = useMemo(() => {
+    const missing = new Set<string>();
+    Object.values(plan.dayPlans).forEach(dayPlan => {
+      dayPlan.parties.forEach(party => {
+        if (!membersByInitials.has(party.driver.toLowerCase())) missing.add(party.driver);
+        party.passengers.forEach(p => {
+          if (!membersByInitials.has(p.toLowerCase())) missing.add(p);
+        });
+      });
+    });
+    return missing;
+  }, [plan, membersByInitials]);
 
   // Format initials as "FirstName (Initials)" with non-breaking space
   const formatPerson = useCallback((initials: string) => {
@@ -555,6 +572,22 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
 
   return (
     <div className="space-y-4 animate-fade-in">
+      {missingMemberInitials.size > 0 && (
+        <div className="p-3 rounded-md bg-muted/50 border border-border/50 text-sm text-muted-foreground flex items-start gap-2">
+          <AlertTriangle className="h-4 w-4 mt-0.5 text-yellow-500 flex-shrink-0" />
+          <div className="space-y-1">
+            <div>
+              This plan references {missingMemberInitials.size === 1 ? 'a member' : 'members'} no longer in the group
+              ({Array.from(missingMemberInitials).join(', ')}), so only their initials can be shown &mdash; their full
+              data can no longer be retrieved. We recommend discarding this plan and generating a new one.
+            </div>
+            <Button variant="outline" size="sm" onClick={handleDiscardPlan} className="h-8">
+              <Trash2 className="h-4 w-4 mr-1.5" />
+              Discard Plan
+            </Button>
+          </div>
+        </div>
+      )}
       <Tabs value={weekFilter} onValueChange={(v) => setWeekFilter(v as typeof weekFilter)}>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <TabsList className="h-9">

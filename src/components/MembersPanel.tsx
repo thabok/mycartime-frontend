@@ -345,7 +345,7 @@ export function MembersPanel({ members, onMembersChange, hasPlan, onNavigateToPl
               </Button>
               <Button variant="outline" onClick={handleImport} className={cn(tutorialHighlightMemberActions && 'ring-2 ring-primary ring-offset-2 animate-tutorial-highlight')}>
                 <Upload className="h-4 w-4 mr-2" />
-                Import from JSON
+                Import from file
               </Button>
             </div>
           )}

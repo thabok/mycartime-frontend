@@ -260,26 +260,30 @@
     top: 50%;
     left: 0;
     z-index: 10;
-    font-size: 1rem;
+    font-size: 2.625rem;
     line-height: 1;
-    animation: tutorialRocketJourney 1.25s ease-in-out forwards;
+    animation: tutorialRocketJourney 3.75s ease-in-out forwards;
+  }
+
+  .tutorial-rocket-emoji {
+    animation: tutorialRocketFlip 3.75s steps(1, end) forwards;
   }
 
   .tutorial-rocket-confetti-piece {
     position: absolute;
-    width: 0.25rem;
-    height: 0.25rem;
+    width: 0.6rem;
+    height: 0.6rem;
     border-radius: 999px;
     background: hsl(var(--warning));
     animation: tutorialRocketConfetti 0.45s ease-out infinite;
   }
 
-  .tutorial-rocket-confetti-piece:nth-of-type(1) { --x: -10px; --y: -12px; background: hsl(var(--warning)); }
-  .tutorial-rocket-confetti-piece:nth-of-type(2) { --x: 8px; --y: -16px; background: hsl(var(--destructive)); animation-delay: 0.1s; }
-  .tutorial-rocket-confetti-piece:nth-of-type(3) { --x: 15px; --y: 4px; background: hsl(var(--primary)); animation-delay: 0.2s; }
-  .tutorial-rocket-confetti-piece:nth-of-type(4) { --x: -14px; --y: 9px; background: hsl(var(--warning)); animation-delay: 0.05s; }
-  .tutorial-rocket-confetti-piece:nth-of-type(5) { --x: 2px; --y: 15px; background: hsl(var(--destructive)); animation-delay: 0.15s; }
-  .tutorial-rocket-confetti-piece:nth-of-type(6) { --x: 18px; --y: -4px; background: hsl(var(--primary)); animation-delay: 0.25s; }
+  .tutorial-rocket-confetti-piece:nth-of-type(1) { --x: -24px; --y: -27px; background: hsl(var(--warning)); }
+  .tutorial-rocket-confetti-piece:nth-of-type(2) { --x: 20px; --y: -36px; background: hsl(var(--destructive)); animation-delay: 0.1s; }
+  .tutorial-rocket-confetti-piece:nth-of-type(3) { --x: 33px; --y: 9px; background: hsl(var(--primary)); animation-delay: 0.2s; }
+  .tutorial-rocket-confetti-piece:nth-of-type(4) { --x: -32px; --y: 20px; background: hsl(var(--warning)); animation-delay: 0.05s; }
+  .tutorial-rocket-confetti-piece:nth-of-type(5) { --x: 5px; --y: 33px; background: hsl(var(--destructive)); animation-delay: 0.15s; }
+  .tutorial-rocket-confetti-piece:nth-of-type(6) { --x: 40px; --y: -9px; background: hsl(var(--primary)); animation-delay: 0.25s; }
 }
 
 @keyframes tutorialHighlight {
@@ -306,8 +310,17 @@
 
 @keyframes tutorialRocketJourney {
   0% { left: 0; transform: translate(-25%, -50%) scale(0.8); }
-  12% { transform: translate(-25%, -65%) scale(1.05); }
-  100% { left: 100%; transform: translate(-75%, -50%) scale(0.9); }
+  10% { transform: translate(-25%, -65%) scale(1.05); }
+  45%, 50% { left: 100%; transform: translate(-75%, -50%) scale(0.9); }
+  60% { transform: translate(-75%, -65%) scale(1.05); }
+  100% { left: 0; transform: translate(-25%, -50%) scale(0.8); }
+}
+
+@keyframes tutorialRocketFlip {
+  0% { transform: scaleX(-1); }
+  49.9% { transform: scaleX(-1); }
+  50% { transform: scaleX(1); }
+  100% { transform: scaleX(1); }
 }
 
 @keyframes tutorialRocketConfetti {

@@ -421,7 +421,7 @@ export function PlanControls({ members, plan, onPlanChange, onViewPlan, onRefere
 
             <Button variant="outline" onClick={handleImportPlan} className="w-full">
               <Upload className="h-4 w-4 mr-2" />
-              Load Plan from JSON
+              Load Plan from file
             </Button>
           </>
         ) : (

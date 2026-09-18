@@ -102,7 +102,7 @@ export function TutorialAssistant({ progress, onCompleteStep, onClose, onNavigat
     const timer = window.setTimeout(() => {
       removeAnimation(steps);
       animationTimers.current = animationTimers.current.filter((id) => id !== timer);
-    }, 1250);
+    }, 3750);
     animationTimers.current.push(timer);
   }, [removeAnimation]);
 
@@ -135,7 +135,7 @@ export function TutorialAssistant({ progress, onCompleteStep, onClose, onNavigat
       manuallyCompletingStep.current = currentStep;
       onCompleteStep(currentStep);
       completionTimer.current = null;
-    }, 1250);
+    }, 3750);
   };
 
   const handleClose = () => {
@@ -218,7 +218,7 @@ export function TutorialAssistant({ progress, onCompleteStep, onClose, onNavigat
                       <span aria-hidden className="tutorial-step-completion-trail text-muted-foreground">{label}</span>
                     </span>
                     <span className="tutorial-step-rocket" aria-hidden>
-                      🚀
+                      <span className="tutorial-rocket-emoji inline-block">🦄</span>
                       {Array.from({ length: 6 }, (_, index) => <i key={index} className="tutorial-rocket-confetti-piece" />)}
                     </span>
                   </>

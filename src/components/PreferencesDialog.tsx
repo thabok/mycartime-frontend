@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Globe, Undo, SlidersHorizontal, Sparkles, CheckCircle2, XCircle } from 'lucide-react';
+import { Globe, Undo, SlidersHorizontal, Sparkles, CheckCircle2, XCircle, Palette } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -28,6 +28,7 @@ import { testWebuntisConnection } from '@/lib/webuntisApi';
 import { testAssistantConnection } from '@/lib/assistantApi';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
+import { useTheme, type ThemePreference } from '@/hooks/useTheme';
 
 interface PreferencesDialogProps {
   open: boolean;
@@ -59,12 +60,19 @@ type SecretKey = (typeof SECRET_KEYS)[number];
 
 const DEFAULT_STORED_VALUE_PLACEHOLDER = '••••••••';
 
-type Category = 'webuntis' | 'planGeneration' | 'aiAssistant';
+type Category = 'webuntis' | 'planGeneration' | 'aiAssistant' | 'stuffAndThings';
 
 const CATEGORIES: { id: Category; label: string; icon: typeof Globe }[] = [
   { id: 'webuntis', label: 'WebUntis', icon: Globe },
   { id: 'planGeneration', label: 'Plan generation', icon: SlidersHorizontal },
   { id: 'aiAssistant', label: 'AI Assistant', icon: Sparkles },
+  { id: 'stuffAndThings', label: 'Stuff and things', icon: Palette },
+];
+
+const THEME_OPTIONS: { id: ThemePreference; label: string }[] = [
+  { id: 'light', label: 'Light' },
+  { id: 'dark', label: 'Dark' },
+  { id: 'system', label: 'Auto' },
 ];
 
 const CATEGORY_NOTES: Partial<Record<Category, string>> = {};
@@ -164,6 +172,7 @@ export function PreferencesDialog({ open, onOpenChange, onSaved, onWebuntisSaved
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const { toast } = useToast();
+  const { preference: themePreference, setThemePreference } = useTheme();
   const backendHostAndPort = getBackendUrl();
   // Same storage the driving-plan page's "Schedule Access" card
   // (useWebuntisCredentials) reads/writes, so the two are always in sync:
@@ -526,6 +535,32 @@ export function PreferencesDialog({ open, onOpenChange, onSaved, onWebuntisSaved
                         {testResult.message}
                       </p>
                     )}
+                  </div>
+                )}
+
+                {category === 'stuffAndThings' && (
+                  <div className="space-y-2">
+                    <Label>Theme</Label>
+                    <div className="inline-flex rounded-md border border-border p-1 gap-1">
+                      {THEME_OPTIONS.map(({ id, label }) => (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => setThemePreference(id)}
+                          className={cn(
+                            'rounded px-3 py-1 text-sm transition-colors',
+                            themePreference === id
+                              ? 'bg-primary/10 text-primary font-medium'
+                              : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                          )}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Auto follows your operating system's light/dark setting.
+                    </p>
                   </div>
                 )}
               </div>
