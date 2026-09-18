@@ -185,7 +185,7 @@ const Index = () => {
         onViewModeChange={handleViewModeChange}
         hasPlan={!!plan}
         onPreferencesSaved={refreshAssistantAvailability}
-        onWebuntisSaved={() => completeTutorialStep('webuntis')}
+        onWebuntisSaved={setWebuntisConfigured}
         onResetTutorial={resetTutorial}
         tutorialHighlightSettings={tutorialStep === 'webuntis'}
         tutorialOpenSettingsRequest={settingsRequest}
@@ -242,7 +242,7 @@ const Index = () => {
             onClose={() => setTutorialOpen(false)}
             onNavigate={navigateTutorial}
             showNavigation={
-              tutorialStep === 'webuntis' || tutorialStep === 'aiAssistant'
+              tutorialStep === 'aiAssistant'
                 ? !preferencesOpen
                 : tutorialStep === 'members'
                   ? viewMode !== 'members'

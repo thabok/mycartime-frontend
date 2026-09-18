@@ -12,7 +12,7 @@ interface HeaderProps {
   onViewModeChange: (mode: ViewMode) => void;
   hasPlan: boolean;
   onPreferencesSaved: () => void;
-  onWebuntisSaved?: () => void;
+  onWebuntisSaved?: (configured: boolean) => void;
   onResetTutorial?: () => void;
   tutorialHighlightSettings?: boolean;
   tutorialOpenSettingsRequest?: number;

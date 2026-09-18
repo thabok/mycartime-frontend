@@ -330,6 +330,9 @@ export function AssistantPanel({
           placeholder="Ask the assistant..."
           rows={2}
           className="min-h-0 resize-none text-sm"
+          autoCorrect="on"
+          autoCapitalize="sentences"
+          spellCheck={true}
         />
         <Button size="icon" onClick={handleSend} disabled={!draft.trim() || isSending} aria-label="Send message">
           <Send className="h-4 w-4" />

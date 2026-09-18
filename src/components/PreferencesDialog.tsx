@@ -36,7 +36,7 @@ interface PreferencesDialogProps {
   // immediately (e.g. re-check whether the AI assistant button should be
   // shown) instead of waiting for the next app load.
   onSaved: () => void;
-  onWebuntisSaved?: () => void;
+  onWebuntisSaved?: (configured: boolean) => void;
   onResetTutorial?: () => void;
   initialCategory?: Category;
 }
@@ -270,7 +270,7 @@ export function PreferencesDialog({ open, onOpenChange, onSaved, onWebuntisSaved
         settings.WEBUNTIS_USERNAME.trim() &&
         (settings.WEBUNTIS_PASSWORD.trim() || storedFlags.WEBUNTIS_PASSWORD)
       );
-      if (category === 'webuntis' && hasWebuntisDetails) onWebuntisSaved?.();
+      onWebuntisSaved?.(hasWebuntisDetails);
     } catch (error) {
       toast({
         title: 'Could not save preferences',
