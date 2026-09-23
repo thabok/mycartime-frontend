@@ -49,7 +49,7 @@ function SolverMetricsGrid({ metrics }: { metrics: PlanSolutionMetrics }) {
       <Metric
         label="Over their limit"
         value={metrics.numOverMaxDrives}
-        hint={`${metrics.numDrivingMoreThan4} drive >4×`}
+        hint={`${metrics.numOverMaxDrives} drive > max`}
       />
       <Metric label="Busiest member" value={`${metrics.maxDrives} days`} />
       <Metric
