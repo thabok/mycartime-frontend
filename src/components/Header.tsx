@@ -18,6 +18,9 @@ interface HeaderProps {
   tutorialOpenSettingsRequest?: number;
   tutorialOpenAiAssistantSettings?: boolean;
   onPreferencesOpenChange?: (open: boolean) => void;
+  // Bump to force the Preferences dialog open on the WebUntis category, e.g.
+  // from the Driving Plan page's "Go to WebUntis Settings" hint.
+  openWebuntisSettingsRequest?: number;
 }
 
 export function Header({
@@ -31,9 +34,15 @@ export function Header({
   tutorialOpenSettingsRequest,
   tutorialOpenAiAssistantSettings = false,
   onPreferencesOpenChange,
+  openWebuntisSettingsRequest,
 }: HeaderProps) {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [preferencesOpen, setPreferencesOpen] = useState(false);
+  // Set alongside preferencesOpen when openWebuntisSettingsRequest fires, so
+  // that specific open forces the WebUntis category regardless of whichever
+  // category the user last had selected; cleared on close so a later plain
+  // gear-icon open goes back to respecting that persisted category.
+  const [forceWebuntisCategory, setForceWebuntisCategory] = useState(false);
 
   // Theme follows the OS by default; once toggled, the explicit choice sticks.
   const { isDark, toggleTheme } = useTheme();
@@ -42,9 +51,17 @@ export function Header({
     if (tutorialOpenSettingsRequest !== undefined) setPreferencesOpen(true);
   }, [tutorialOpenSettingsRequest]);
 
+  useEffect(() => {
+    if (openWebuntisSettingsRequest !== undefined) {
+      setForceWebuntisCategory(true);
+      setPreferencesOpen(true);
+    }
+  }, [openWebuntisSettingsRequest]);
+
   const handlePreferencesOpenChange = (open: boolean) => {
     setPreferencesOpen(open);
     onPreferencesOpenChange?.(open);
+    if (!open) setForceWebuntisCategory(false);
   };
 
   return (
@@ -130,7 +147,13 @@ export function Header({
         onSaved={onPreferencesSaved}
         onWebuntisSaved={onWebuntisSaved}
         onResetTutorial={onResetTutorial}
-        initialCategory={tutorialOpenAiAssistantSettings ? 'aiAssistant' : undefined}
+        initialCategory={
+          tutorialOpenAiAssistantSettings
+            ? 'aiAssistant'
+            : forceWebuntisCategory
+              ? 'webuntis'
+              : undefined
+        }
       />
     </header>
   );

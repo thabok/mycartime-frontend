@@ -39,6 +39,7 @@ const Index = () => {
   const [resultVisits, setResultVisits] = useLocalStorage('carpool-tutorial-result-visits', { summary: false, plan: false });
   const [preferencesOpen, setPreferencesOpen] = useState(false);
   const [settingsRequest, setSettingsRequest] = useState<number>();
+  const [openWebuntisSettingsRequest, setOpenWebuntisSettingsRequest] = useState<number>();
   const [webuntisConfigured, setWebuntisConfigured] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -57,15 +58,23 @@ const Index = () => {
         return response.json() as Promise<{
           WEBUNTIS_SERVER?: string;
           WEBUNTIS_USERNAME?: string;
+          WEBUNTIS_AUTH_MODE?: 'password' | 'secret';
           WEBUNTIS_PASSWORD_SET?: boolean;
+          WEBUNTIS_SECRET_SET?: boolean;
+          // The hidden mock/demo server (see backend/mock_webuntis.py) never
+          // needs a username or password/secret - the server URL alone
+          // makes WebUntis "configured".
+          WEBUNTIS_MOCK_MODE?: boolean;
         }>;
       })
       .then((settings) => {
         if (cancelled) return;
+        const hasPasswordOrSecret = settings.WEBUNTIS_AUTH_MODE === 'secret'
+          ? Boolean(settings.WEBUNTIS_SECRET_SET)
+          : Boolean(settings.WEBUNTIS_PASSWORD_SET);
         setWebuntisConfigured(Boolean(
           settings.WEBUNTIS_SERVER?.trim() &&
-          settings.WEBUNTIS_USERNAME?.trim() &&
-          settings.WEBUNTIS_PASSWORD_SET
+          (settings.WEBUNTIS_MOCK_MODE || (settings.WEBUNTIS_USERNAME?.trim() && hasPasswordOrSecret))
         ));
       })
       .catch(() => {
@@ -187,10 +196,11 @@ const Index = () => {
         onPreferencesSaved={refreshAssistantAvailability}
         onWebuntisSaved={setWebuntisConfigured}
         onResetTutorial={resetTutorial}
-        tutorialHighlightSettings={tutorialStep === 'webuntis'}
+        tutorialHighlightSettings={tutorialOpen && tutorialStep === 'webuntis'}
         tutorialOpenSettingsRequest={settingsRequest}
-        tutorialOpenAiAssistantSettings={tutorialStep === 'aiAssistant'}
+        tutorialOpenAiAssistantSettings={tutorialOpen && tutorialStep === 'aiAssistant'}
         onPreferencesOpenChange={setPreferencesOpen}
+        openWebuntisSettingsRequest={openWebuntisSettingsRequest}
       />
 
       <div className="flex flex-1 min-h-0">
@@ -203,7 +213,7 @@ const Index = () => {
                 hasPlan={!!plan}
                 onNavigateToPlan={handleViewPlan}
                 referenceDate={referenceDate}
-                tutorialHighlightMemberActions={tutorialStep === 'members' && members.length === 0}
+                tutorialHighlightMemberActions={tutorialOpen && tutorialStep === 'members' && members.length === 0}
               />
             ) : plan ? (
               <PlanViewer
@@ -214,8 +224,8 @@ const Index = () => {
                 referenceDate={referenceDate}
                 modifiedPartyKeys={modifiedPartyKeys}
                 onClearHighlights={clearHighlights}
-                tutorialHighlightEdit={tutorialStep === 'manualChanges'}
-                tutorialHighlightExport={tutorialStep === 'export'}
+                tutorialHighlightEdit={tutorialOpen && tutorialStep === 'manualChanges'}
+                tutorialHighlightExport={tutorialOpen && tutorialStep === 'export'}
                 onManualPlanChange={() => completeTutorialStep('manualChanges')}
                 onPngExported={() => completeTutorialStep('export')}
               />
@@ -227,7 +237,9 @@ const Index = () => {
                   onPlanChange={handlePlanChange}
                   onViewPlan={handleViewPlan}
                   onReferenceDateChange={setReferenceDate}
-                  tutorialHighlightGenerate={tutorialStep === 'plan'}
+                  tutorialHighlightGenerate={tutorialOpen && tutorialStep === 'plan'}
+                  webuntisConfigured={webuntisConfigured}
+                  onOpenWebuntisSettings={() => setOpenWebuntisSettingsRequest((previous) => (previous ?? 0) + 1)}
                 />
               </div>
             )}

@@ -46,7 +46,9 @@ interface Settings {
   WEBUNTIS_SERVER: string;
   WEBUNTIS_SCHOOL: string;
   WEBUNTIS_USERNAME: string;
+  WEBUNTIS_AUTH_MODE: 'password' | 'secret';
   WEBUNTIS_PASSWORD: string;
+  WEBUNTIS_SECRET: string;
   TIME_TOLERANCE_MINUTES: number;
   MAX_DRIVES_FULLTIME: number;
   MAX_DRIVES_PARTTIME: number;
@@ -55,7 +57,7 @@ interface Settings {
 
 // Fields the backend never sends back, only whether a value is stored - see
 // user_settings.SECRET_SETTINGS.
-const SECRET_KEYS = ['WEBUNTIS_PASSWORD'] as const satisfies readonly (keyof Settings)[];
+const SECRET_KEYS = ['WEBUNTIS_PASSWORD', 'WEBUNTIS_SECRET'] as const satisfies readonly (keyof Settings)[];
 type SecretKey = (typeof SECRET_KEYS)[number];
 
 const DEFAULT_STORED_VALUE_PLACEHOLDER = '••••••••';
@@ -82,8 +84,13 @@ interface ConfigField {
   key: keyof Settings;
   label: string;
   description: string;
-  type: 'text' | 'number' | 'password';
+  type: 'text' | 'number' | 'password' | 'select';
   placeholder?: string;
+  options?: { value: string; label: string }[];
+  // If set, the field is only shown when this returns true for the current
+  // (in-progress, unsaved) settings - e.g. the password field only when
+  // WEBUNTIS_AUTH_MODE is 'password'.
+  visibleWhen?: (settings: Settings) => boolean;
 }
 
 const CONFIG_FIELDS: ConfigField[] = [
@@ -114,10 +121,32 @@ const CONFIG_FIELDS: ConfigField[] = [
   },
   {
     category: 'webuntis',
+    key: 'WEBUNTIS_AUTH_MODE',
+    label: 'Login method',
+    description:
+      "Some schools' teachers sign in via an SSO provider like IServ (\"Anmelden über iserv\") and have no WebUntis password of their own. Those accounts should use the secret key instead - it's on the WebUntis website under profile > Freigaben, listed for the mobile app (also shown as a QR code).",
+    type: 'select',
+    options: [
+      { value: 'password', label: 'Password' },
+      { value: 'secret', label: 'Secret key (IServ / SSO)' },
+    ],
+  },
+  {
+    category: 'webuntis',
     key: 'WEBUNTIS_PASSWORD',
     label: 'Password',
     description: '',
     type: 'password',
+    visibleWhen: (s) => s.WEBUNTIS_AUTH_MODE !== 'secret',
+  },
+  {
+    category: 'webuntis',
+    key: 'WEBUNTIS_SECRET',
+    label: 'Secret key',
+    description:
+      'The "Schlüssel" value from WebUntis profile > Freigaben (mobile app section), not your WebUntis password.',
+    type: 'password',
+    visibleWhen: (s) => s.WEBUNTIS_AUTH_MODE === 'secret',
   },
   {
     category: 'planGeneration',
@@ -248,10 +277,16 @@ export function PreferencesDialog({ open, onOpenChange, onSaved, onWebuntisSaved
   const savePreferences = async () => {
     if (!settings) return;
 
+    // Only send fields the backend actually accepts - `settings` also
+    // carries read-only, computed fields (e.g. WEBUNTIS_MOCK_MODE) from the
+    // GET response, which the backend rejects as unknown settings.
+    const body: Record<string, unknown> = Object.fromEntries(
+      CONFIG_FIELDS.map((field) => [field.key, settings[field.key]])
+    );
+
     // An untouched secret field must not wipe the stored value, so it is
     // only sent when the user typed a replacement or explicitly asked to
     // remove it.
-    const body: Record<string, unknown> = { ...settings };
     for (const key of SECRET_KEYS) {
       if (settings[key]) body[key] = settings[key];
       else if (clearFlags[key]) body[key] = '';
@@ -266,18 +301,26 @@ export function PreferencesDialog({ open, onOpenChange, onSaved, onWebuntisSaved
         body: JSON.stringify(body),
       });
 
+      const responseBody = await response.json().catch(() => null);
+
       if (!response.ok) {
-        const body = await response.json().catch(() => null);
-        throw new Error(body?.error || 'Failed to save preferences');
+        throw new Error(responseBody?.error || 'Failed to save preferences');
       }
 
       setShowUnsavedPrompt(false);
       onOpenChange(false);
       onSaved();
+      // The hidden mock/demo server (see backend/mock_webuntis.py) never
+      // needs a username or password/secret - the backend reports this via
+      // WEBUNTIS_MOCK_MODE so the server URL alone counts as "configured".
       const hasWebuntisDetails = Boolean(
         settings.WEBUNTIS_SERVER.trim() &&
-        settings.WEBUNTIS_USERNAME.trim() &&
-        (settings.WEBUNTIS_PASSWORD.trim() || storedFlags.WEBUNTIS_PASSWORD)
+        (responseBody?.WEBUNTIS_MOCK_MODE || (
+          settings.WEBUNTIS_USERNAME.trim() &&
+          (settings.WEBUNTIS_AUTH_MODE === 'secret'
+            ? settings.WEBUNTIS_SECRET.trim() || storedFlags.WEBUNTIS_SECRET
+            : settings.WEBUNTIS_PASSWORD.trim() || storedFlags.WEBUNTIS_PASSWORD)
+        ))
       );
       onWebuntisSaved?.(hasWebuntisDetails);
     } catch (error) {
@@ -360,7 +403,9 @@ export function PreferencesDialog({ open, onOpenChange, onSaved, onWebuntisSaved
                     {CATEGORY_NOTES[category]}
                   </p>
                 )}
-                {CONFIG_FIELDS.filter((field) => field.category === category).map((field) => {
+                {CONFIG_FIELDS.filter(
+                  (field) => field.category === category && (!field.visibleWhen || field.visibleWhen(settings))
+                ).map((field) => {
                   const inputId = `pref-${field.key}`;
                   const value = settings[field.key];
                   const isDirty = dirtyKeys.has(field.key);
@@ -391,23 +436,43 @@ export function PreferencesDialog({ open, onOpenChange, onSaved, onWebuntisSaved
                           </Tooltip>
                         )}
                       </div>
-                      <Input
-                        id={inputId}
-                        type={field.type}
-                        min={field.type === 'number' ? 0 : undefined}
-                        value={value}
-                        placeholder={
-                          keyStored && !clearKey
-                            ? DEFAULT_STORED_VALUE_PLACEHOLDER
-                            : field.placeholder
-                        }
-                        onChange={(e) =>
-                          updateField(
-                            field.key,
-                            field.type === 'number' ? Number(e.target.value) : e.target.value
-                          )
-                        }
-                      />
+                      {field.type === 'select' ? (
+                        <div className="flex rounded-md border border-border p-1 gap-1 w-fit">
+                          {field.options!.map(({ value: optionValue, label }) => (
+                            <button
+                              key={optionValue}
+                              type="button"
+                              onClick={() => updateField(field.key, optionValue)}
+                              className={cn(
+                                'rounded px-3 py-1 text-sm transition-colors',
+                                value === optionValue
+                                  ? 'bg-primary/10 text-primary font-medium'
+                                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                              )}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <Input
+                          id={inputId}
+                          type={field.type}
+                          min={field.type === 'number' ? 0 : undefined}
+                          value={value}
+                          placeholder={
+                            keyStored && !clearKey
+                              ? DEFAULT_STORED_VALUE_PLACEHOLDER
+                              : field.placeholder
+                          }
+                          onChange={(e) =>
+                            updateField(
+                              field.key,
+                              field.type === 'number' ? Number(e.target.value) : e.target.value
+                            )
+                          }
+                        />
+                      )}
                       <p className="text-xs text-muted-foreground">
                         {field.description}
                         {keyStored && !value && (
@@ -455,7 +520,9 @@ export function PreferencesDialog({ open, onOpenChange, onSaved, onWebuntisSaved
                             server: settings.WEBUNTIS_SERVER,
                             school: settings.WEBUNTIS_SCHOOL,
                             username: settings.WEBUNTIS_USERNAME,
+                            authMode: settings.WEBUNTIS_AUTH_MODE,
                             password: settings.WEBUNTIS_PASSWORD,
+                            secret: settings.WEBUNTIS_SECRET,
                           });
                           setTestResult({
                             success: result.success,

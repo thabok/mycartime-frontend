@@ -138,6 +138,7 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
   const [customDaysHighlightDay, setCustomDaysHighlightDay] = useState<DayOfWeekABCombo | null>(null);
   const [showDesignatedDriver, setShowDesignatedDriver] = useLocalStorage('carpool-show-designated-driver', false);
   const [showSoloDriver, setShowSoloDriver] = useLocalStorage('carpool-show-solo-driver', false);
+  const [showDrivesDespitePrefs, setShowDrivesDespitePrefs] = useLocalStorage('carpool-show-drives-despite-prefs', true);
   const { toast } = useToast();
 
   // Create lookup map: initials -> Member
@@ -159,6 +160,18 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
     });
     return missing;
   }, [plan, membersByInitials]);
+
+  // Initials of members who drive at least once despite a "no car" custom
+  // preference somewhere in the plan, for the summary-page warning indicator.
+  const initialsDrivingDespitePrefs = useMemo(() => {
+    const flagged = new Set<string>();
+    Object.values(plan.dayPlans).forEach(dayPlan => {
+      dayPlan.parties.forEach(party => {
+        if (party.drivesDespiteCustomPrefs) flagged.add(party.driver.toLowerCase());
+      });
+    });
+    return flagged;
+  }, [plan]);
 
   // Format initials as "FirstName (Initials)" with non-breaking space
   const formatPerson = useCallback((initials: string) => {
@@ -398,6 +411,7 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
         referenceDate,
         showDesignatedDriver,
         showSoloDriver,
+        showDrivesDespitePrefs,
       });
 
       // Both weeks are bundled into a single ZIP (rather than downloaded as
@@ -480,6 +494,9 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
           ) : party.isDesignatedDriver ? (
             showDesignatedDriver && <Flag className="inline h-3.5 w-3.5 mb-0.5 mr-1 text-muted-foreground" />
           ) : null}
+          {party.drivesDespiteCustomPrefs && showDrivesDespitePrefs && (
+            <AlertTriangle className="inline h-3.5 w-3.5 mb-0.5 mr-1 text-amber-500" />
+          )}
           {formatPerson(party.driver)}
         </button>
         {passengersFormatted.length > 0 && (
@@ -683,6 +700,9 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
                               {member?.isPartTime && (
                                 <Clock className="h-3 w-3 text-muted-foreground/60 shrink-0" aria-label="Part-time" />
                               )}
+                              {showDrivesDespitePrefs && initialsDrivingDespitePrefs.has(person.initials.toLowerCase()) && (
+                                <AlertTriangle className="h-3 w-3 text-amber-500 shrink-0" aria-label="Drives despite no-car preference" />
+                              )}
                             </button>
                           );
                         })}
@@ -749,7 +769,7 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
                   "flex items-center gap-1 cursor-pointer transition-opacity hover:opacity-100",
                   !showDesignatedDriver && "opacity-40"
                 )}
-                title={showDesignatedDriver ? "Hide designated driver indicator" : "Show designated driver indicator"}
+                title={showDesignatedDriver ? "Hide designated driver indicator" : "Show designated driver indicator (needsCar, or no one else was available to ride with)"}
               >
                 <Flag className="h-3.5 w-3.5" /> designated driver
               </button>
@@ -762,6 +782,16 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
                 title={showSoloDriver ? "Hide solo driver indicator" : "Show solo driver indicator"}
               >
                 <UserRoundX className="h-3.5 w-3.5" /> solo driver (no passengers)
+              </button>
+              <button
+                onClick={() => setShowDrivesDespitePrefs(v => !v)}
+                className={cn(
+                  "flex items-center gap-1 cursor-pointer transition-opacity hover:opacity-100",
+                  !showDrivesDespitePrefs && "opacity-40"
+                )}
+                title={showDrivesDespitePrefs ? "Hide 'drives despite no-car preference' indicator" : "Show 'drives despite no-car preference' indicator"}
+              >
+                <AlertTriangle className="h-3.5 w-3.5 text-amber-500" /> drives despite no-car preference
               </button>
               {modifiedPartyKeys && modifiedPartyKeys.size > 0 && (
                 <button

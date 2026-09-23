@@ -4,7 +4,9 @@ export interface TestConnectionParams {
   server: string;
   school: string;
   username: string;
+  authMode: 'password' | 'secret';
   password: string;
+  secret: string;
 }
 
 export interface TestConnectionResult {

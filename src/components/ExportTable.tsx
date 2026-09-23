@@ -2,7 +2,7 @@ import { DrivingPlan, DayPlan, Party, Member } from '@/types/carpool';
 import { DAY_NAMES, formatTime, buildMembersByInitials, formatPersonDisplay } from '@/lib/planFormat';
 import { cn } from '@/lib/utils';
 import { WeekSeparator } from '@/components/WeekSeparator';
-import { Flag, UserRoundX } from 'lucide-react';
+import { AlertTriangle, Flag, UserRoundX } from 'lucide-react';
 
 // Purely presentational: one week's table with no surrounding app chrome. The
 // element marked data-export-capture is what gets rasterised (see
@@ -13,6 +13,7 @@ export interface ExportTableProps {
   referenceDate?: Date;
   showDesignatedDriver: boolean;
   showSoloDriver: boolean;
+  showDrivesDespitePrefs: boolean;
   isWeekA: boolean;
 }
 
@@ -22,6 +23,7 @@ export function ExportTable({
   referenceDate,
   showDesignatedDriver,
   showSoloDriver,
+  showDrivesDespitePrefs,
   isWeekA,
 }: ExportTableProps) {
   const membersByInitials = buildMembersByInitials(members);
@@ -48,6 +50,9 @@ export function ExportTable({
         ) : party.isDesignatedDriver ? (
           showDesignatedDriver && <Flag className="inline h-3.5 w-3.5 mb-0.5 mr-1 text-muted-foreground" />
         ) : null}
+        {party.drivesDespiteCustomPrefs && showDrivesDespitePrefs && (
+          <AlertTriangle className="inline h-3.5 w-3.5 mb-0.5 mr-1 text-amber-500" />
+        )}
         {formatPerson(party.driver)}
       </span>
       {party.passengers.length > 0 && (
@@ -109,7 +114,7 @@ export function ExportTable({
           </tbody>
         </table>
       </div>
-      {(showDesignatedDriver || showSoloDriver) && (
+      {(showDesignatedDriver || showSoloDriver || showDrivesDespitePrefs) && (
         <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground pt-1">
           {showDesignatedDriver && (
             <span className="flex items-center gap-1">
@@ -119,6 +124,11 @@ export function ExportTable({
           {showSoloDriver && (
             <span className="flex items-center gap-1">
               <UserRoundX className="h-3.5 w-3.5" /> solo driver (no passengers)
+            </span>
+          )}
+          {showDrivesDespitePrefs && (
+            <span className="flex items-center gap-1">
+              <AlertTriangle className="h-3.5 w-3.5 text-amber-500" /> drives despite no-car preference
             </span>
           )}
         </div>

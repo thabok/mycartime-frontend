@@ -2,17 +2,15 @@ import { useCallback, useRef, useState, useEffect } from 'react';
 import { format, parseISO } from 'date-fns';
 import { Member, DrivingPlan } from '@/types/carpool';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { 
-  CalendarIcon, 
-  Loader2, 
-  Sparkles, 
-  Upload, 
-  Lock
+import {
+  CalendarIcon,
+  Loader2,
+  Sparkles,
+  Upload,
+  Settings as SettingsIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getBackendUrl } from '@/lib/config';
@@ -39,10 +37,24 @@ interface PlanControlsProps {
   onViewPlan: () => void;
   onReferenceDateChange?: (date: Date | undefined) => void;
   tutorialHighlightGenerate?: boolean;
+  // Whether the WebUntis server/username/password-or-secret are fully set up
+  // in Settings - the sole source of credentials now that this page no
+  // longer has its own username/password fields (see onOpenWebuntisSettings).
+  webuntisConfigured: boolean;
+  onOpenWebuntisSettings: () => void;
 }
 
-export function PlanControls({ members, plan, onPlanChange, onViewPlan, onReferenceDateChange, tutorialHighlightGenerate = false }: PlanControlsProps) {
-  const { username, setUsername, password, setPassword, hasCredentials, hasStoredPassword, credentialFields } = useWebuntisCredentials();
+export function PlanControls({
+  members,
+  plan,
+  onPlanChange,
+  onViewPlan,
+  onReferenceDateChange,
+  tutorialHighlightGenerate = false,
+  webuntisConfigured,
+  onOpenWebuntisSettings,
+}: PlanControlsProps) {
+  const { credentialFields } = useWebuntisCredentials();
   const [referenceDateString, setReferenceDateString] = useLocalStorage<string | null>('carpool-reference-date', null);
   const [referenceDate, setReferenceDate] = useState<Date | undefined>(() => {
     if (referenceDateString) {
@@ -73,13 +85,12 @@ export function PlanControls({ members, plan, onPlanChange, onViewPlan, onRefere
   }, [referenceDate, setReferenceDateString, onReferenceDateChange]);
 
   // Auto-suggest a reference date (next date that falls in an A week) once
-  // credentials are available, unless the user already has one set/saved.
-  // Debounced so it doesn't fire on every keystroke, and retries whenever
-  // the credentials change again (e.g. after fixing a typo) rather than
-  // giving up permanently after one failed attempt.
+  // WebUntis is configured, unless the user already has one set/saved.
+  // Debounced, and retries whenever that changes again rather than giving up
+  // permanently after one failed attempt.
   useEffect(() => {
     if (referenceDateString) return;
-    if (!hasCredentials) return;
+    if (!webuntisConfigured) return;
 
     let cancelled = false;
     const timer = setTimeout(async () => {
@@ -105,10 +116,10 @@ export function PlanControls({ members, plan, onPlanChange, onViewPlan, onRefere
       clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [username, password, hasCredentials, referenceDateString, backendHostAndPort]);
+  }, [webuntisConfigured, referenceDateString, backendHostAndPort]);
 
   const isDateValid = !!referenceDate;
-  const canGenerate = hasCredentials && isDateValid && members.length > 0 && !plan;
+  const canGenerate = webuntisConfigured && isDateValid && members.length > 0 && !plan;
 
   const formatDateForApi = (date: Date): number => {
     const yyyy = date.getFullYear().toString();
@@ -291,46 +302,6 @@ export function PlanControls({ members, plan, onPlanChange, onViewPlan, onRefere
         onAutoStopEnabledChange={setAutoStopEnabled}
       />
 
-      {/* Authentication Card */}
-      <Card>
-        <CardHeader className="pb-4">
-          <div className="flex items-center gap-2">
-            <Lock className="h-4 w-4 text-primary" />
-            <CardTitle className="text-base">Schedule Access</CardTitle>
-          </div>
-          <CardDescription>
-            {hasStoredPassword
-              ? 'Using the WebUntis credentials saved in Settings. Type a password below to use different ones instead.'
-              : 'Enter credentials to fetch teacher schedules from webuntis'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
-              <Input
-                id="username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Username"
-                disabled={!!plan}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder={hasStoredPassword ? '••••••••' : 'Password'}
-                disabled={!!plan}
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Reference Date Card */}
       <Card>
         <CardHeader className="pb-4">
@@ -399,15 +370,26 @@ export function PlanControls({ members, plan, onPlanChange, onViewPlan, onRefere
             </Button>
             
             {!canGenerate && !isGenerating && (
-              <p className="text-xs text-muted-foreground text-center">
-                {!hasCredentials
-                  ? 'Enter credentials above'
-                  : !isDateValid 
+              !webuntisConfigured ? (
+                <div className="rounded-md border border-border bg-muted/30 p-3 text-center space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    WebUntis isn't fully set up yet - add the server URL, username, and a password
+                    or secret key in Settings before generating a plan.
+                  </p>
+                  <Button type="button" variant="outline" size="sm" onClick={onOpenWebuntisSettings}>
+                    <SettingsIcon className="h-4 w-4 mr-2" />
+                    Go to WebUntis Settings
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground text-center">
+                  {!isDateValid
                     ? 'Select a reference date'
-                    : members.length === 0 
+                    : members.length === 0
                       ? 'Add at least one member'
                       : 'A plan already exists'}
-              </p>
+                </p>
+              )
             )}
 
             <div className="relative">

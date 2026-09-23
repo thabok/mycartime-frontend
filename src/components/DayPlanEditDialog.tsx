@@ -299,6 +299,9 @@ export function DayPlanEditDialog({
           ) : party.isDesignatedDriver ? (
             <Flag className="inline h-3.5 w-3.5 mb-0.5 mr-1" />
           ) : null}
+          {party.drivesDespiteCustomPrefs && (
+            <AlertTriangle className="inline h-3.5 w-3.5 mb-0.5 mr-1 text-amber-500" />
+          )}
           {formatPerson(party.driver)}
         </span>
         {passengersText && (
