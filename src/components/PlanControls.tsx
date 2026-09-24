@@ -337,6 +337,7 @@ export function PlanControls({
                 mode="single"
                 selected={referenceDate}
                 onSelect={setReferenceDate}
+                weekStartsOn={1}
                 className="pointer-events-auto"
               />
             </PopoverContent>

@@ -48,3 +48,44 @@ export function Metric({
 export function MetricsGrid({ children }: { children: ReactNode }) {
   return <div className="grid grid-cols-2 auto-rows-fr gap-2 sm:grid-cols-4">{children}</div>;
 }
+
+/**
+ * Larger standalone variant of {@link Metric} for a single headline stat,
+ * e.g. the Summary page's primary "drives saved" figure sitting above its
+ * supporting {@link MetricsGrid}.
+ */
+export function HeroMetric({
+  label,
+  value,
+  tooltip,
+  icon: Icon,
+}: {
+  label: string;
+  value: string | number;
+  /** Detailed explanation shown on hover; omit for a plain, non-interactive card. */
+  tooltip?: ReactNode;
+  icon?: LucideIcon;
+}) {
+  const card = (
+    <div className="w-full rounded-md border bg-muted/30 px-6 py-5 flex items-center justify-center gap-4">
+      {Icon && <Icon className="h-9 w-9 text-primary flex-shrink-0" />}
+      <div className="text-center">
+        <div className="text-4xl font-bold tabular-nums leading-tight">{value}</div>
+        <div className="text-sm text-muted-foreground">{label}</div>
+      </div>
+    </div>
+  );
+
+  if (!tooltip) {
+    return card;
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div className="cursor-help">{card}</div>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-xs text-sm">{tooltip}</TooltipContent>
+    </Tooltip>
+  );
+}

@@ -6,14 +6,19 @@ import { PreferencesDialog } from '@/components/PreferencesDialog';
 import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
 import { useTheme } from '@/hooks/useTheme';
+import type { TutorialProgress } from '@/lib/tutorial';
 
 interface HeaderProps {
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
   hasPlan: boolean;
+  /** Hides the Members / Driving Plan tab group, e.g. on standalone pages like the plan Summary. */
+  showNav?: boolean;
   onPreferencesSaved: () => void;
   onWebuntisSaved?: (configured: boolean) => void;
   onResetTutorial?: () => void;
+  onShowTutorial?: () => void;
+  tutorialProgress?: TutorialProgress;
   tutorialHighlightSettings?: boolean;
   tutorialOpenSettingsRequest?: number;
   tutorialOpenAiAssistantSettings?: boolean;
@@ -27,9 +32,12 @@ export function Header({
   viewMode,
   onViewModeChange,
   hasPlan,
+  showNav = true,
   onPreferencesSaved,
   onWebuntisSaved,
   onResetTutorial,
+  onShowTutorial,
+  tutorialProgress,
   tutorialHighlightSettings = false,
   tutorialOpenSettingsRequest,
   tutorialOpenAiAssistantSettings = false,
@@ -110,32 +118,34 @@ export function Header({
               <MessageSquare className="h-4 w-4" />
             </Button>
 
-            <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-xl">
-              <Button
-                variant={viewMode === 'members' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => onViewModeChange('members')}
-                className={cn(
-                  "gap-2 transition-all",
-                  viewMode === 'members' && "shadow-sm"
-                )}
-              >
-                <Users className="h-4 w-4" />
-                Members
-              </Button>
-              <Button
-                variant={viewMode === 'plan' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => onViewModeChange('plan')}
-                className={cn(
-                  "gap-2 transition-all",
-                  viewMode === 'plan' && "shadow-sm"
-                )}
-              >
-                <CalendarDays className="h-4 w-4" />
-                Driving Plan
-              </Button>
-            </div>
+            {showNav && (
+              <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-xl">
+                <Button
+                  variant={viewMode === 'members' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => onViewModeChange('members')}
+                  className={cn(
+                    "gap-2 transition-all",
+                    viewMode === 'members' && "shadow-sm"
+                  )}
+                >
+                  <Users className="h-4 w-4" />
+                  Members
+                </Button>
+                <Button
+                  variant={viewMode === 'plan' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => onViewModeChange('plan')}
+                  className={cn(
+                    "gap-2 transition-all",
+                    viewMode === 'plan' && "shadow-sm"
+                  )}
+                >
+                  <CalendarDays className="h-4 w-4" />
+                  Driving Plan
+                </Button>
+              </div>
+            )}
           </nav>
         </div>
       </div>
@@ -147,6 +157,8 @@ export function Header({
         onSaved={onPreferencesSaved}
         onWebuntisSaved={onWebuntisSaved}
         onResetTutorial={onResetTutorial}
+        onShowTutorial={onShowTutorial}
+        tutorialProgress={tutorialProgress}
         initialCategory={
           tutorialOpenAiAssistantSettings
             ? 'aiAssistant'

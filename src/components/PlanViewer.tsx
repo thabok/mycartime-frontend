@@ -1,5 +1,5 @@
 import { Fragment, useState, useMemo, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import { DrivingPlan, DayPlan, Party, Member, DayOfWeekABCombo } from '@/types/carpool';
 import { partyKey } from '@/lib/planDiff';
@@ -8,7 +8,7 @@ import { getWeekMonday } from '@/lib/planDates';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Pencil, Users, FileText, Download, Image, Trash2, Flag, UserRoundX, Clock, X, AlertTriangle } from 'lucide-react';
+import { Pencil, Users, FileText, Download, Image, ListChecks, Trash2, Flag, UserRoundX, Clock, X, AlertTriangle } from 'lucide-react';
 import { cn, downloadJson } from '@/lib/utils';
 import { buildPlanPngZip, saveZip } from '@/lib/exportPng';
 import { PlanQualityMetrics } from './PlanQualityMetrics';
@@ -75,6 +75,7 @@ type WeekFilter = 'summary' | 'all' | 'A' | 'B';
 const WEEK_FILTERS: WeekFilter[] = ['summary', 'all', 'A', 'B'];
 
 export function PlanViewer({ plan, onPlanChange, members, onMembersChange, referenceDate, modifiedPartyKeys, onClearHighlights, tutorialHighlightEdit = false, tutorialHighlightExport = false, onManualPlanChange, onPngExported }: PlanViewerProps) {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
   const weekFilter: WeekFilter = WEEK_FILTERS.includes(tabParam as WeekFilter) ? (tabParam as WeekFilter) : 'summary';
@@ -423,6 +424,7 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
 
       toast({ title: 'Exported', description: 'Week A and Week B saved as a ZIP of PNGs.' });
       onPngExported?.();
+      navigate('/summary');
     } catch (err) {
       console.error('Failed to export plan as PNG:', err);
       toast({ title: 'Export failed', description: 'Could not generate the PNGs.', variant: 'destructive' });
@@ -634,6 +636,9 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
             </Button>
             <Button variant="outline" size="sm" onClick={handleExportPng} className={cn('h-9', tutorialHighlightExport && 'ring-2 ring-primary ring-offset-2 animate-tutorial-highlight')} title="Export Week A / Week B as PNG" data-tutorial-highlight={tutorialHighlightExport || undefined}>
               <Image className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => navigate('/summary')} className="h-9" title="View Summary">
+              <ListChecks className="h-4 w-4" />
             </Button>
             <Button variant="outline" size="sm" onClick={handleDiscardPlan} className="h-9" title="Discard Plan">
               <Trash2 className="h-4 w-4" />

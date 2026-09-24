@@ -20,6 +20,19 @@ export const buildMembersByInitials = (members: Member[]): Map<string, Member> =
   return map;
 };
 
+// plan.summary lines look like "- Name (Initials): Count" - see
+// backend's PlanBuilder.generate_summary(). Each Count is the number of
+// distinct days that member drove (both legs of a day count once), summed
+// across the full two-week A/B cycle.
+const SUMMARY_LINE = /^-\s*(.+?)\s*\(([^)]+)\):\s*(\d+)$/;
+
+export const getTotalDriveCount = (summary: string): number =>
+  summary
+    .split('\n')
+    .map((line) => line.match(SUMMARY_LINE))
+    .filter((match): match is RegExpMatchArray => match !== null)
+    .reduce((total, match) => total + parseInt(match[3], 10), 0);
+
 const NBSP = String.fromCharCode(160);
 
 // Format initials as "FirstName (Initials)" with a non-breaking space so the

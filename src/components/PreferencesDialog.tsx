@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Globe, Undo, SlidersHorizontal, Sparkles, CheckCircle2, XCircle, Palette } from 'lucide-react';
+import { Globe, Undo, SlidersHorizontal, Sparkles, CheckCircle2, XCircle, Palette, GraduationCap, Circle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -20,6 +20,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -29,6 +30,7 @@ import { testAssistantConnection } from '@/lib/assistantApi';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
 import { useTheme, type ThemePreference } from '@/hooks/useTheme';
+import { TUTORIAL_STEPS, TUTORIAL_STEP_LABELS, type TutorialProgress } from '@/lib/tutorial';
 
 interface PreferencesDialogProps {
   open: boolean;
@@ -39,6 +41,10 @@ interface PreferencesDialogProps {
   onSaved: () => void;
   onWebuntisSaved?: (configured: boolean) => void;
   onResetTutorial?: () => void;
+  // Closes this dialog and re-opens the tutorial sidebar, for the Tutorial
+  // page's "Show tutorial" button.
+  onShowTutorial?: () => void;
+  tutorialProgress?: TutorialProgress;
   initialCategory?: Category;
 }
 
@@ -52,6 +58,7 @@ interface Settings {
   TIME_TOLERANCE_MINUTES: number;
   MAX_DRIVES_FULLTIME: number;
   MAX_DRIVES_PARTTIME: number;
+  ASSISTANT_ENABLED: boolean;
   CLAUDE_CLI_PATH: string;
 }
 
@@ -62,13 +69,14 @@ type SecretKey = (typeof SECRET_KEYS)[number];
 
 const DEFAULT_STORED_VALUE_PLACEHOLDER = '••••••••';
 
-type Category = 'webuntis' | 'planGeneration' | 'aiAssistant' | 'stuffAndThings';
+type Category = 'webuntis' | 'planGeneration' | 'aiAssistant' | 'stuffAndThings' | 'tutorial';
 
 const CATEGORIES: { id: Category; label: string; icon: typeof Globe }[] = [
   { id: 'webuntis', label: 'WebUntis', icon: Globe },
   { id: 'planGeneration', label: 'Plan generation', icon: SlidersHorizontal },
   { id: 'aiAssistant', label: 'AI Assistant', icon: Sparkles },
   { id: 'stuffAndThings', label: 'Stuff and things', icon: Palette },
+  { id: 'tutorial', label: 'Tutorial', icon: GraduationCap },
 ];
 
 const THEME_OPTIONS: { id: ThemePreference; label: string }[] = [
@@ -84,7 +92,7 @@ interface ConfigField {
   key: keyof Settings;
   label: string;
   description: string;
-  type: 'text' | 'number' | 'password' | 'select';
+  type: 'text' | 'number' | 'password' | 'select' | 'checkbox';
   placeholder?: string;
   options?: { value: string; label: string }[];
   // If set, the field is only shown when this returns true for the current
@@ -174,18 +182,43 @@ const CONFIG_FIELDS: ConfigField[] = [
   },
   {
     category: 'aiAssistant',
+    key: 'ASSISTANT_ENABLED',
+    label: 'Enable AI Assistant',
+    description:
+      'Off by default. While off, the assistant button is hidden and the claude CLI is never invoked - not even to check whether it works.',
+    type: 'checkbox',
+  },
+  {
+    category: 'aiAssistant',
     key: 'CLAUDE_CLI_PATH',
     label: 'Path to the claude CLI',
     description:
       'Full path to the executable, e.g. /opt/homebrew/bin/claude.',
     type: 'text',
     placeholder: 'claude',
+    visibleWhen: (s) => s.ASSISTANT_ENABLED,
   },
 ];
 
 type SettingsResponse = Omit<Settings, SecretKey> & { [K in SecretKey as `${K}_SET`]: boolean };
 
-export function PreferencesDialog({ open, onOpenChange, onSaved, onWebuntisSaved, onResetTutorial, initialCategory }: PreferencesDialogProps) {
+// Secret fields always start blank in the draft; a non-empty value means
+// "replace". Shared between the initial GET and a successful save/apply, so
+// both settle into the same shape.
+function normalizeSettingsResponse(response: SettingsResponse) {
+  const flags = Object.fromEntries(
+    SECRET_KEYS.map((key) => [key, !!response[`${key}_SET`]])
+  ) as Record<SecretKey, boolean>;
+  const rest = { ...response } as Record<string, unknown>;
+  for (const key of SECRET_KEYS) delete rest[`${key}_SET`];
+
+  const normalized = { ...rest } as unknown as Settings;
+  for (const key of SECRET_KEYS) normalized[key] = '';
+
+  return { normalized, flags };
+}
+
+export function PreferencesDialog({ open, onOpenChange, onSaved, onWebuntisSaved, onResetTutorial, onShowTutorial, tutorialProgress, initialCategory }: PreferencesDialogProps) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [originalSettings, setOriginalSettings] = useState<Settings | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -227,15 +260,7 @@ export function PreferencesDialog({ open, onOpenChange, onSaved, onWebuntisSaved
         return response.json();
       })
       .then((response: SettingsResponse) => {
-        const flags = Object.fromEntries(
-          SECRET_KEYS.map((key) => [key, !!response[`${key}_SET`]])
-        ) as Record<SecretKey, boolean>;
-        const rest = { ...response } as Record<string, unknown>;
-        for (const key of SECRET_KEYS) delete rest[`${key}_SET`];
-
-        // Secret fields always start blank; a non-empty value means "replace".
-        const normalized = { ...rest } as unknown as Settings;
-        for (const key of SECRET_KEYS) normalized[key] = '';
+        const { normalized, flags } = normalizeSettingsResponse(response);
         // The driving-plan page's credentials are the live, current value -
         // prefer them over whatever is saved server-side so both fields
         // always show the same thing.
@@ -274,7 +299,9 @@ export function PreferencesDialog({ open, onOpenChange, onSaved, onWebuntisSaved
   );
   const hasUnsavedChanges = dirtyKeys.size > 0 || Object.values(clearFlags).some(Boolean);
 
-  const savePreferences = async () => {
+  // closeAfter=false is "Apply": persists the changes but keeps the dialog
+  // open, e.g. so the user can keep tweaking other categories.
+  const savePreferences = async (closeAfter = true) => {
     if (!settings) return;
 
     // Only send fields the backend actually accepts - `settings` also
@@ -308,7 +335,20 @@ export function PreferencesDialog({ open, onOpenChange, onSaved, onWebuntisSaved
       }
 
       setShowUnsavedPrompt(false);
-      onOpenChange(false);
+      if (closeAfter) {
+        onOpenChange(false);
+      } else {
+        // Re-derive the draft from the server response (same shape the GET
+        // handler produces) so secret-field placeholders and dirty markers
+        // reset to "clean" without needing to refetch.
+        const { normalized, flags } = normalizeSettingsResponse(responseBody as SettingsResponse);
+        if (settings.WEBUNTIS_USERNAME.trim()) normalized.WEBUNTIS_USERNAME = settings.WEBUNTIS_USERNAME.trim();
+        if (settings.WEBUNTIS_PASSWORD.trim()) normalized.WEBUNTIS_PASSWORD = settings.WEBUNTIS_PASSWORD;
+        setSettings(normalized);
+        setOriginalSettings(normalized);
+        setStoredFlags(flags);
+        setClearFlags({});
+      }
       onSaved();
       // The hidden mock/demo server (see backend/mock_webuntis.py) never
       // needs a username or password/secret - the backend reports this via
@@ -390,11 +430,6 @@ export function PreferencesDialog({ open, onOpenChange, onSaved, onWebuntisSaved
                     </button>
                   );
                 })}
-                {onResetTutorial && (
-                  <Button variant="ghost" className="mx-2 mt-auto justify-start text-xs text-muted-foreground" onClick={onResetTutorial}>
-                    Reset tutorial
-                  </Button>
-                )}
               </nav>
 
               <div className="flex-1 space-y-4 p-6 overflow-y-auto">
@@ -413,6 +448,25 @@ export function PreferencesDialog({ open, onOpenChange, onSaved, onWebuntisSaved
                   const secretKey = field.key as SecretKey;
                   const keyStored = isSecret && storedFlags[secretKey];
                   const clearKey = isSecret && !!clearFlags[secretKey];
+                  if (field.type === 'checkbox') {
+                    const checked = Boolean(value);
+                    return (
+                      <div key={field.key} className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor={inputId}>
+                            {field.label}
+                            {isDirty && '*'}
+                          </Label>
+                          <Switch
+                            id={inputId}
+                            checked={checked}
+                            onCheckedChange={(next) => updateField(field.key, next)}
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground">{field.description}</p>
+                      </div>
+                    );
+                  }
                   return (
                     <div key={field.key} className="space-y-2">
                       <div className="flex items-center justify-between">
@@ -560,7 +614,7 @@ export function PreferencesDialog({ open, onOpenChange, onSaved, onWebuntisSaved
                   </div>
                 )}
 
-                {category === 'aiAssistant' && (
+                {category === 'aiAssistant' && settings.ASSISTANT_ENABLED && (
                   <div className="space-y-2 pt-2">
                     <Button
                       type="button"
@@ -632,6 +686,51 @@ export function PreferencesDialog({ open, onOpenChange, onSaved, onWebuntisSaved
                     </p>
                   </div>
                 )}
+
+                {category === 'tutorial' && (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Completed steps</Label>
+                      <ul className="space-y-1.5">
+                        {TUTORIAL_STEPS.map((step) => {
+                          const done = tutorialProgress?.[step] ?? false;
+                          return (
+                            <li key={step} className="flex items-center gap-2 text-sm">
+                              {done ? (
+                                <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-emerald-600" />
+                              ) : (
+                                <Circle className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                              )}
+                              <span className={cn(!done && 'text-muted-foreground')}>
+                                {TUTORIAL_STEP_LABELS[step]}
+                              </span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                    <div className="flex gap-2 pt-2">
+                      {onResetTutorial && (
+                        <Button type="button" variant="outline" size="sm" onClick={onResetTutorial}>
+                          Reset tutorial
+                        </Button>
+                      )}
+                      {onShowTutorial && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            onOpenChange(false);
+                            onShowTutorial();
+                          }}
+                        >
+                          Show tutorial
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -640,7 +739,14 @@ export function PreferencesDialog({ open, onOpenChange, onSaved, onWebuntisSaved
             <Button variant="outline" onClick={requestClose} disabled={isSaving}>
               Cancel
             </Button>
-            <Button onClick={savePreferences} disabled={isSaving || isLoading || !settings}>
+            <Button
+              variant="outline"
+              onClick={() => savePreferences(false)}
+              disabled={isSaving || isLoading || !settings || !hasUnsavedChanges}
+            >
+              {isSaving ? 'Applying...' : 'Apply'}
+            </Button>
+            <Button onClick={() => savePreferences(true)} disabled={isSaving || isLoading || !settings}>
               {isSaving ? 'Saving...' : 'Save preferences'}
             </Button>
           </DialogFooter>
@@ -661,7 +767,7 @@ export function PreferencesDialog({ open, onOpenChange, onSaved, onWebuntisSaved
             <Button variant="destructive" onClick={discardAndExit}>
               Discard & exit
             </Button>
-            <AlertDialogAction onClick={savePreferences} disabled={isSaving}>
+            <AlertDialogAction onClick={() => savePreferences(true)} disabled={isSaving}>
               {isSaving ? 'Applying...' : 'Apply all'}
             </AlertDialogAction>
           </AlertDialogFooter>

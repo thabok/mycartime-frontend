@@ -144,6 +144,8 @@ const Index = () => {
     setTutorialOpen(true);
   };
 
+  const showTutorial = () => setTutorialOpen(true);
+
   // Whenever the plan is replaced - whether via the Day Plan Editor, a direct
   // API call (generate/import), or the AI assistant - diff it against the
   // previous plan so the affected parties can be highlighted in the driving
@@ -196,6 +198,8 @@ const Index = () => {
         onPreferencesSaved={refreshAssistantAvailability}
         onWebuntisSaved={setWebuntisConfigured}
         onResetTutorial={resetTutorial}
+        onShowTutorial={showTutorial}
+        tutorialProgress={tutorialProgress}
         tutorialHighlightSettings={tutorialOpen && tutorialStep === 'webuntis'}
         tutorialOpenSettingsRequest={settingsRequest}
         tutorialOpenAiAssistantSettings={tutorialOpen && tutorialStep === 'aiAssistant'}
