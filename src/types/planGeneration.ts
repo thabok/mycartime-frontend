@@ -10,8 +10,8 @@ export interface PlanSolutionMetrics {
   solutionCount: number;
   /**
    * Sum over members of the days they drive. Informational only - the solver
-   * does not try to reduce this, since driving below one's MAX_DRIVES is not an
-   * improvement.
+   * does not try to reduce this, since driving below one's target drive count
+   * is not an improvement.
    */
   totalDrives: number;
   /** Days driven by the busiest single member. */

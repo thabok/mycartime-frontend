@@ -15,7 +15,6 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { MemberTimetableView } from '@/components/MemberTimetableView';
-import { getBackendUrl } from '@/lib/config';
 
 interface MemberDialogProps {
   open: boolean;
@@ -31,6 +30,9 @@ interface MemberDialogProps {
 
 const WEEK_A_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 const WEEK_B_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+
+const DEFAULT_TARGET_DRIVE_COUNT_FULLTIME = 4;
+const DEFAULT_TARGET_DRIVE_COUNT_PARTTIME = 2;
 
 const createEmptyCustomDay = (): CustomDay => ({
   ignoreCompletely: false,
@@ -49,25 +51,9 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
   const [initials, setInitials] = useState('');
   const [numberOfSeats, setNumberOfSeats] = useState(4);
   const [isPartTime, setIsPartTime] = useState(false);
+  const [targetDriveCount, setTargetDriveCount] = useState(DEFAULT_TARGET_DRIVE_COUNT_FULLTIME);
   const [customDays, setCustomDays] = useState<Record<string, CustomDay>>({});
   const [activeTab, setActiveTab] = useState('basic');
-  const [maxDrivesFulltime, setMaxDrivesFulltime] = useState<number | null>(null);
-  const [maxDrivesParttime, setMaxDrivesParttime] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    fetch(`${getBackendUrl()}/api/v1/settings`)
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data) => {
-        if (data) {
-          setMaxDrivesFulltime(data.MAX_DRIVES_FULLTIME);
-          setMaxDrivesParttime(data.MAX_DRIVES_PARTTIME);
-        }
-      })
-      .catch(() => {
-        // Hint falls back to generic wording if settings can't be loaded.
-      });
-  }, [open]);
 
   useEffect(() => {
     if (member) {
@@ -76,6 +62,10 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
       setInitials(member.initials);
       setNumberOfSeats(member.numberOfSeats);
       setIsPartTime(member.isPartTime || false);
+      setTargetDriveCount(
+        member.targetDriveCount ??
+          (member.isPartTime ? DEFAULT_TARGET_DRIVE_COUNT_PARTTIME : DEFAULT_TARGET_DRIVE_COUNT_FULLTIME)
+      );
       setCustomDays(member.customDays || {});
     } else {
       setFirstName('');
@@ -83,10 +73,21 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
       setInitials('');
       setNumberOfSeats(4);
       setIsPartTime(false);
+      setTargetDriveCount(DEFAULT_TARGET_DRIVE_COUNT_FULLTIME);
       setCustomDays({});
     }
     setActiveTab(initialTab);
   }, [member, open, initialTab]);
+
+  // Follows the isPartTime toggle only while the value still matches the
+  // default for the *other* type, so it nudges an unedited value to the new
+  // type's default but never overwrites a value the user deliberately set.
+  const handlePartTimeChange = (checked: boolean) => {
+    setIsPartTime(checked);
+    const previousDefault = checked ? DEFAULT_TARGET_DRIVE_COUNT_FULLTIME : DEFAULT_TARGET_DRIVE_COUNT_PARTTIME;
+    const newDefault = checked ? DEFAULT_TARGET_DRIVE_COUNT_PARTTIME : DEFAULT_TARGET_DRIVE_COUNT_FULLTIME;
+    setTargetDriveCount((prev) => (prev === previousDefault ? newDefault : prev));
+  };
 
   useEffect(() => {
     if (!member && firstName && lastName) {
@@ -132,6 +133,7 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
       initials: initials.trim(),
       numberOfSeats,
       isPartTime,
+      targetDriveCount,
       customDays: Object.keys(cleanedCustomDays).length > 0 ? cleanedCustomDays : undefined,
     });
     onOpenChange(false);
@@ -259,14 +261,24 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
               <Switch
                 id="partTime"
                 checked={isPartTime}
-                onCheckedChange={setIsPartTime}
+                onCheckedChange={handlePartTimeChange}
               />
             </div>
-            <p className="text-xs text-muted-foreground -mt-2 px-1">
-              {isPartTime
-                ? `Part-time members aim to drive ${maxDrivesParttime ?? '...'} times per 2-week cycle (vs. ${maxDrivesFulltime ?? '...'} for full-time members).`
-                : `Full-time members aim to drive ${maxDrivesFulltime ?? '...'} times per 2-week cycle (vs. ${maxDrivesParttime ?? '...'} for part-time members).`}
-            </p>
+
+            <div className="space-y-2">
+              <Label htmlFor="targetDriveCount">Target drive count</Label>
+              <Input
+                id="targetDriveCount"
+                type="number"
+                min={0}
+                max={20}
+                value={targetDriveCount}
+                onChange={(e) => setTargetDriveCount(parseInt(e.target.value) || 0)}
+              />
+              <p className="text-xs text-muted-foreground">
+                How many times this member should be asked to drive per 2-week cycle.
+              </p>
+            </div>
           </TabsContent>
           
           <TabsContent value="custom" className="mt-4 space-y-4 flex-1 min-h-0 overflow-y-auto">

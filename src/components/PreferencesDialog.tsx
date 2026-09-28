@@ -56,8 +56,6 @@ interface Settings {
   WEBUNTIS_PASSWORD: string;
   WEBUNTIS_SECRET: string;
   TIME_TOLERANCE_MINUTES: number;
-  MAX_DRIVES_FULLTIME: number;
-  MAX_DRIVES_PARTTIME: number;
   ASSISTANT_ENABLED: boolean;
   CLAUDE_CLI_PATH: string;
 }
@@ -162,22 +160,6 @@ const CONFIG_FIELDS: ConfigField[] = [
     label: 'Time tolerance (minutes)',
     description:
       "How many minutes members are willing to wait for others. Higher values mean more waiting time but potentially better carpool matches.",
-    type: 'number',
-  },
-  {
-    category: 'planGeneration',
-    key: 'MAX_DRIVES_FULLTIME',
-    label: 'Max drives (full-time members)',
-    description:
-      'The most times a full-time member should be asked to drive over the 2-week schedule cycle.',
-    type: 'number',
-  },
-  {
-    category: 'planGeneration',
-    key: 'MAX_DRIVES_PARTTIME',
-    label: 'Max drives (part-time members)',
-    description:
-      'The most times a part-time member should be asked to drive over the 2-week schedule cycle.',
     type: 'number',
   },
   {

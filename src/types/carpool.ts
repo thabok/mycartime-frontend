@@ -15,6 +15,7 @@ export interface Member {
   initials: string;
   numberOfSeats: number;
   isPartTime?: boolean;
+  targetDriveCount?: number;
   customDays?: Record<string, CustomDay>;
 }
 
