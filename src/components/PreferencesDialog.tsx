@@ -433,7 +433,7 @@ export function PreferencesDialog({ open, onOpenChange, onSaved, onWebuntisSaved
   return (
     <>
       <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(next) : requestClose())}>
-        <DialogContent className="sm:max-w-2xl p-0 gap-0 overflow-hidden">
+        <DialogContent className="sm:max-w-[55rem] p-0 gap-0 overflow-hidden">
           <DialogHeader className="px-6 pt-6 pb-4">
             <DialogTitle>Settings</DialogTitle>
           </DialogHeader>
