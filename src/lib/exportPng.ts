@@ -4,6 +4,7 @@ import { toBlob } from 'html-to-image';
 import JSZip from 'jszip';
 
 import { ExportTable, ExportTableProps } from '@/components/ExportTable';
+import { planHasAlternatingWeeks } from '@/types/carpool';
 import { isTauri } from '@/lib/config';
 
 const CAPTURE_SELECTOR = '[data-export-capture="true"]';
@@ -38,19 +39,34 @@ async function captureWeek(props: ExportTableProps): Promise<Blob> {
   }
 }
 
-/** Both weeks as a single ZIP, mirroring what the old backend endpoint returned. */
-export async function buildPlanPngZip(props: Omit<ExportTableProps, 'isWeekA'>): Promise<Blob> {
-  const weekA = await captureWeek({ ...props, isWeekA: true });
-  const weekB = await captureWeek({ ...props, isWeekA: false });
-
-  const zip = new JSZip();
-  zip.file('driving-plan-week-a.png', weekA);
-  zip.file('driving-plan-week-b.png', weekB);
-  return zip.generateAsync({ type: 'blob' });
+export interface PlanPngExport {
+  blob: Blob;
+  extension: 'png' | 'zip';
 }
 
+/**
+ * A plan with alternating weeks exports both weeks bundled into one ZIP
+ * (mirroring what the old backend endpoint returned); a single-week plan is
+ * just one PNG, exported as-is.
+ */
+export async function buildPlanPngExport(props: Omit<ExportTableProps, 'isWeekA'>): Promise<PlanPngExport> {
+  if (!planHasAlternatingWeeks(props.plan)) {
+    return { blob: await captureWeek({ ...props, isWeekA: true }), extension: 'png' };
+  }
+  const zip = new JSZip();
+  zip.file('driving-plan-week-a.png', await captureWeek({ ...props, isWeekA: true }));
+  zip.file('driving-plan-week-b.png', await captureWeek({ ...props, isWeekA: false }));
+  return { blob: await zip.generateAsync({ type: 'blob' }), extension: 'zip' };
+}
+
+const SAVE_FILTERS: Record<PlanPngExport['extension'], { name: string; extensions: string[] }> = {
+  png: { name: 'PNG image', extensions: ['png'] },
+  zip: { name: 'ZIP archive', extensions: ['zip'] },
+};
+
 /** Returns false when the user dismissed the native save dialog. */
-export async function saveZip(blob: Blob, filename: string): Promise<boolean> {
+export async function saveExport({ blob, extension }: PlanPngExport, basename: string): Promise<boolean> {
+  const filename = `${basename}.${extension}`;
   if (isTauri()) {
     const [{ save }, { writeFile }] = await Promise.all([
       import('@tauri-apps/plugin-dialog'),
@@ -58,7 +74,7 @@ export async function saveZip(blob: Blob, filename: string): Promise<boolean> {
     ]);
     const path = await save({
       defaultPath: filename,
-      filters: [{ name: 'ZIP archive', extensions: ['zip'] }],
+      filters: [SAVE_FILTERS[extension]],
     });
     if (!path) return false;
     await writeFile(path, new Uint8Array(await blob.arrayBuffer()));

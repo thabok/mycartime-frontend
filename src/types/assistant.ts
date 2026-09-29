@@ -23,11 +23,11 @@ export type AssistantStreamEvent =
 
 export type AssistantAction =
   | { type: 'createMember'; member: Member }
-  | { type: 'updateMember'; initials: string; member: Member }
-  | { type: 'deleteMember'; initials: string }
+  | { type: 'updateMember'; shorthand: string; member: Member }
+  | { type: 'deleteMember'; shorthand: string }
   | { type: 'importMembers'; members: Member[] }
   | { type: 'exportMembers' }
-  | { type: 'updateCustomDay'; initials: string; dayKey: string; customDay: CustomDay }
+  | { type: 'updateCustomDay'; shorthand: string; dayKey: string; customDay: CustomDay }
   | { type: 'movePassenger'; dayUniqueNumber: number; passenger: string; fromParty: PartyRef; toParty: PartyRef }
   | { type: 'deletePlan' }
   | { type: 'exportPlan' }

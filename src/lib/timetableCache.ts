@@ -28,16 +28,25 @@ function writeCache(cache: TimetableCache): void {
   }
 }
 
-export function getCachedMemberTimetable(initials: string): CachedMemberTimetable | undefined {
-  if (!initials) return undefined;
-  return readCache()[initials];
+export function getCachedMemberTimetable(shorthand: string): CachedMemberTimetable | undefined {
+  if (!shorthand) return undefined;
+  return readCache()[shorthand];
 }
 
-export function setCachedMemberTimetable(initials: string, detail: MemberTimetableDetail): void {
-  if (!initials) return;
+export function setCachedMemberTimetable(shorthand: string, detail: MemberTimetableDetail): void {
+  if (!shorthand) return;
   const cache = readCache();
-  cache[initials] = { detail, fetchedAt: new Date().toISOString() };
+  cache[shorthand] = { detail, fetchedAt: new Date().toISOString() };
   writeCache(cache);
+}
+
+/** Drops every cached entry, e.g. after the cycle length changes and the cached slots no longer match. */
+export function clearTimetableCache(): void {
+  try {
+    window.localStorage.removeItem(CACHE_KEY);
+  } catch (error) {
+    console.error('Error clearing timetable cache:', error);
+  }
 }
 
 const formatDateForApi = (date: Date): string => {
@@ -82,10 +91,10 @@ export async function refreshTimetableCache(
 ): Promise<void> {
   await Promise.allSettled(
     members
-      .filter((member) => member.initials)
+      .filter((member) => member.shorthand)
       .map(async (member) => {
         const detail = await fetchMemberTimetableDetail(member, referenceDate, credentialFields);
-        setCachedMemberTimetable(member.initials, detail);
+        setCachedMemberTimetable(member.shorthand, detail);
       })
   );
 }

@@ -24,7 +24,7 @@ export function MemberCard({ member, onEdit, onEditCustom, onDelete }: MemberCar
           <div className="flex items-center gap-3">
             {/* <div className="h-16 w-16 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-semibold text-xl shrink-0"> */}
             <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-semibold text-lg">
-              {member.initials}
+              {member.shorthand}
             </div>
             <div>
               <h3 className="font-medium text-foreground">

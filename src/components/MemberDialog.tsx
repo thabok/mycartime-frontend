@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Clock } from 'lucide-react';
+import { Clock, Info } from 'lucide-react';
 import { Member, CustomDay, DayOfWeekABCombo } from '@/types/carpool';
 import {
   Dialog,
@@ -13,8 +13,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Checkbox } from '@/components/ui/checkbox';
 import { MemberTimetableView } from '@/components/MemberTimetableView';
+import { useAlternatingWeeks } from '@/hooks/useAlternatingWeeks';
+import { defaultTargetDriveCount } from '@/lib/targetDriveCount';
 
 interface MemberDialogProps {
   open: boolean;
@@ -31,9 +34,6 @@ interface MemberDialogProps {
 const WEEK_A_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 const WEEK_B_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 
-const DEFAULT_TARGET_DRIVE_COUNT_FULLTIME = 4;
-const DEFAULT_TARGET_DRIVE_COUNT_PARTTIME = 2;
-
 const createEmptyCustomDay = (): CustomDay => ({
   ignoreCompletely: false,
   noWaitingAfternoon: false,
@@ -48,10 +48,11 @@ const createEmptyCustomDay = (): CustomDay => ({
 export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 'basic', referenceDate, initialTimetableDay }: MemberDialogProps) {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [initials, setInitials] = useState('');
+  const [shorthand, setShorthand] = useState('');
   const [numberOfSeats, setNumberOfSeats] = useState(4);
   const [isPartTime, setIsPartTime] = useState(false);
-  const [targetDriveCount, setTargetDriveCount] = useState(DEFAULT_TARGET_DRIVE_COUNT_FULLTIME);
+  const [alternatingWeeks] = useAlternatingWeeks();
+  const [targetDriveCount, setTargetDriveCount] = useState(() => defaultTargetDriveCount(false, alternatingWeeks));
   const [customDays, setCustomDays] = useState<Record<string, CustomDay>>({});
   const [activeTab, setActiveTab] = useState('basic');
 
@@ -59,42 +60,32 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
     if (member) {
       setFirstName(member.firstName);
       setLastName(member.lastName);
-      setInitials(member.initials);
+      setShorthand(member.shorthand);
       setNumberOfSeats(member.numberOfSeats);
       setIsPartTime(member.isPartTime || false);
-      setTargetDriveCount(
-        member.targetDriveCount ??
-          (member.isPartTime ? DEFAULT_TARGET_DRIVE_COUNT_PARTTIME : DEFAULT_TARGET_DRIVE_COUNT_FULLTIME)
-      );
+      setTargetDriveCount(member.targetDriveCount ?? defaultTargetDriveCount(member.isPartTime, alternatingWeeks));
       setCustomDays(member.customDays || {});
     } else {
       setFirstName('');
       setLastName('');
-      setInitials('');
+      setShorthand('');
       setNumberOfSeats(4);
       setIsPartTime(false);
-      setTargetDriveCount(DEFAULT_TARGET_DRIVE_COUNT_FULLTIME);
+      setTargetDriveCount(defaultTargetDriveCount(false, alternatingWeeks));
       setCustomDays({});
     }
     setActiveTab(initialTab);
-  }, [member, open, initialTab]);
+  }, [member, open, initialTab, alternatingWeeks]);
 
   // Follows the isPartTime toggle only while the value still matches the
   // default for the *other* type, so it nudges an unedited value to the new
   // type's default but never overwrites a value the user deliberately set.
   const handlePartTimeChange = (checked: boolean) => {
     setIsPartTime(checked);
-    const previousDefault = checked ? DEFAULT_TARGET_DRIVE_COUNT_FULLTIME : DEFAULT_TARGET_DRIVE_COUNT_PARTTIME;
-    const newDefault = checked ? DEFAULT_TARGET_DRIVE_COUNT_PARTTIME : DEFAULT_TARGET_DRIVE_COUNT_FULLTIME;
+    const previousDefault = defaultTargetDriveCount(!checked, alternatingWeeks);
+    const newDefault = defaultTargetDriveCount(checked, alternatingWeeks);
     setTargetDriveCount((prev) => (prev === previousDefault ? newDefault : prev));
   };
-
-  useEffect(() => {
-    if (!member && firstName && lastName) {
-      const auto = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
-      setInitials(auto);
-    }
-  }, [firstName, lastName, member]);
 
   const normalizeTime = (value: string): string => {
     const trimmed = value.trim();
@@ -130,10 +121,14 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
     onSave({
       firstName: firstName.trim(),
       lastName: lastName.trim(),
-      initials: initials.trim(),
+      shorthand: shorthand.trim(),
       numberOfSeats,
       isPartTime,
-      targetDriveCount,
+      // Stored only when it differs from the default, so a member at the
+      // default keeps following it (e.g. when toggling part-time later).
+      targetDriveCount: targetDriveCount === defaultTargetDriveCount(isPartTime, alternatingWeeks)
+        ? undefined
+        : targetDriveCount,
       customDays: Object.keys(cleanedCustomDays).length > 0 ? cleanedCustomDays : undefined,
     });
     onOpenChange(false);
@@ -173,7 +168,7 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
     });
   };
 
-  const isValid = firstName.trim() && lastName.trim() && initials.trim() && numberOfSeats > 0;
+  const isValid = firstName.trim() && lastName.trim() && shorthand.trim() && numberOfSeats > 0;
 
   const isFixedSizeTab = activeTab === 'custom' || activeTab === 'timetable';
   const dialogSizeClass = isFixedSizeTab
@@ -187,7 +182,7 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
           <DialogTitle>
             {member
               ? (activeTab === 'custom' || activeTab === 'timetable')
-                ? `Member details: ${firstName} ${lastName} (${initials})`
+                ? `Member details: ${firstName} ${lastName} (${shorthand})`
                 : 'Member details'
               : 'Add New Member'}
           </DialogTitle>
@@ -228,13 +223,23 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
             
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="initials">Initials</Label>
+                <div className="flex items-center gap-1">
+                  <Label htmlFor="shorthand">Shorthand</Label>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3.5 w-3.5 text-muted-foreground" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      Must match the teacher's shorthand used in WebUntis, so the timetable can be extracted.
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
                 <Input
-                  id="initials"
-                  value={initials}
+                  id="shorthand"
+                  value={shorthand}
                   onChange={(e) => {
                     const value = e.target.value;
-                    setInitials(value.charAt(0).toUpperCase() + value.slice(1).toLowerCase());
+                    setShorthand(value.charAt(0).toUpperCase() + value.slice(1).toLowerCase());
                   }}
                   placeholder="Js"
                   maxLength={3}
@@ -276,15 +281,15 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
                 onChange={(e) => setTargetDriveCount(parseInt(e.target.value) || 0)}
               />
               <p className="text-xs text-muted-foreground">
-                How many times this member should be asked to drive per 2-week cycle.
+                How many times this member should be asked to drive per {alternatingWeeks ? '2-week cycle' : 'week'}.
               </p>
             </div>
           </TabsContent>
           
           <TabsContent value="custom" className="mt-4 space-y-4 flex-1 min-h-0 overflow-y-auto">
-            {/* Week A Row */}
+            {/* Week A Row (the only week without alternating weeks) */}
             <div>
-              <h4 className="text-sm font-medium text-muted-foreground mb-2">Week A</h4>
+              {alternatingWeeks && <h4 className="text-sm font-medium text-muted-foreground mb-2">Week A</h4>}
               <div className="grid grid-cols-5 gap-2">
                 {WEEK_A_DAYS.map((dayName, index) => {
                   const dayKey = index.toString();
@@ -343,6 +348,7 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
             </div>
 
             {/* Week B Row */}
+            {alternatingWeeks && (
             <div>
               <h4 className="text-sm font-medium text-muted-foreground mb-2">Week B</h4>
               <div className="grid grid-cols-5 gap-2">
@@ -401,6 +407,7 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
                 })}
               </div>
             </div>
+            )}
           </TabsContent>
 
           {member && (

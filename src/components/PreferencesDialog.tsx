@@ -30,7 +30,12 @@ import { testAssistantConnection } from '@/lib/assistantApi';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
 import { useTheme, type ThemePreference } from '@/hooks/useTheme';
+import { useAlternatingWeeks } from '@/hooks/useAlternatingWeeks';
+import { useCreatePartiesForUnderusedDrivers } from '@/hooks/useCreatePartiesForUnderusedDrivers';
 import { TUTORIAL_STEPS, TUTORIAL_STEP_LABELS, type TutorialProgress } from '@/lib/tutorial';
+import { hasCustomTargetDriveCount, withDefaultTargetDriveCount } from '@/lib/targetDriveCount';
+import { clearTimetableCache } from '@/lib/timetableCache';
+import type { DrivingPlan, Member } from '@/types/carpool';
 
 interface PreferencesDialogProps {
   open: boolean;
@@ -44,6 +49,7 @@ interface PreferencesDialogProps {
   // Closes this dialog and re-opens the tutorial sidebar, for the Tutorial
   // page's "Show tutorial" button.
   onShowTutorial?: () => void;
+  onCompleteAllTutorial?: () => void;
   tutorialProgress?: TutorialProgress;
   initialCategory?: Category;
 }
@@ -56,6 +62,8 @@ interface Settings {
   WEBUNTIS_PASSWORD: string;
   WEBUNTIS_SECRET: string;
   TIME_TOLERANCE_MINUTES: number;
+  ALTERNATING_WEEKS: boolean;
+  CREATE_PARTIES_FOR_UNDERUSED_DRIVERS: boolean;
   ASSISTANT_ENABLED: boolean;
   CLAUDE_CLI_PATH: string;
 }
@@ -156,6 +164,22 @@ const CONFIG_FIELDS: ConfigField[] = [
   },
   {
     category: 'planGeneration',
+    key: 'ALTERNATING_WEEKS',
+    label: 'Alternating weeks (A/B)',
+    description:
+      'Off by default: plans cover a single week (Mon-Fri) that repeats every week. Turn on if your school alternates between an A and a B week - plans then cover two weeks (10 days), weeks A and B.',
+    type: 'checkbox',
+  },
+  {
+    category: 'planGeneration',
+    key: 'CREATE_PARTIES_FOR_UNDERUSED_DRIVERS',
+    label: 'Create parties for under-used drivers',
+    description:
+      'Ensures fairness by creating parties for drivers who are below their target drive count.',
+    type: 'checkbox',
+  },
+  {
+    category: 'planGeneration',
     key: 'TIME_TOLERANCE_MINUTES',
     label: 'Time tolerance (minutes)',
     description:
@@ -167,7 +191,7 @@ const CONFIG_FIELDS: ConfigField[] = [
     key: 'ASSISTANT_ENABLED',
     label: 'Enable AI Assistant',
     description:
-      'Off by default. While off, the assistant button is hidden and the claude CLI is never invoked - not even to check whether it works.',
+      'Requires claude CLI (authenticated and ready to use). Off by default.',
     type: 'checkbox',
   },
   {
@@ -200,7 +224,7 @@ function normalizeSettingsResponse(response: SettingsResponse) {
   return { normalized, flags };
 }
 
-export function PreferencesDialog({ open, onOpenChange, onSaved, onWebuntisSaved, onResetTutorial, onShowTutorial, tutorialProgress, initialCategory }: PreferencesDialogProps) {
+export function PreferencesDialog({ open, onOpenChange, onSaved, onWebuntisSaved, onResetTutorial, onShowTutorial, onCompleteAllTutorial, tutorialProgress, initialCategory }: PreferencesDialogProps) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [originalSettings, setOriginalSettings] = useState<Settings | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -224,6 +248,18 @@ export function PreferencesDialog({ open, onOpenChange, onSaved, onWebuntisSaved
   // second, independent copy of the credentials.
   const [sharedUsername, setSharedUsername] = useLocalStorage<string>('carpool-username', '');
   const [sharedPassword, setSharedPassword] = useSessionStorage<string>('carpool-password', '');
+  // Switching between alternating and non-alternating weeks invalidates both
+  // the current plan (its days no longer fit) and members' drive counts
+  // (tuned for the other cycle length), so both are reset on save.
+  const [members, setMembers] = useLocalStorage<Member[]>('carpool-members', []);
+  const [plan, setPlan] = useLocalStorage<DrivingPlan | null>('carpool-plan', null);
+  const [, setAlternatingWeeks] = useAlternatingWeeks();
+  const [, setCreatePartiesForUnderusedDrivers] = useCreatePartiesForUnderusedDrivers();
+  const [pendingWeekModeSwitch, setPendingWeekModeSwitch] = useState<{
+    closeAfter: boolean;
+    customDriveCountMembers: Member[];
+    hasPlan: boolean;
+  } | null>(null);
 
   useEffect(() => {
     if (open && initialCategory) setCategory(initialCategory);
@@ -283,8 +319,21 @@ export function PreferencesDialog({ open, onOpenChange, onSaved, onWebuntisSaved
 
   // closeAfter=false is "Apply": persists the changes but keeps the dialog
   // open, e.g. so the user can keep tweaking other categories.
-  const savePreferences = async (closeAfter = true) => {
+  const savePreferences = async (closeAfter = true, weekModeSwitchConfirmed = false) => {
     if (!settings) return;
+
+    const weekModeChanged = !!originalSettings &&
+      settings.ALTERNATING_WEEKS !== originalSettings.ALTERNATING_WEEKS;
+    if (weekModeChanged && !weekModeSwitchConfirmed) {
+      const customDriveCountMembers = members.filter((member) =>
+        hasCustomTargetDriveCount(member, originalSettings.ALTERNATING_WEEKS)
+      );
+      if (customDriveCountMembers.length > 0 || plan) {
+        setShowUnsavedPrompt(false);
+        setPendingWeekModeSwitch({ closeAfter, customDriveCountMembers, hasPlan: !!plan });
+        return;
+      }
+    }
 
     // Only send fields the backend actually accepts - `settings` also
     // carries read-only, computed fields (e.g. WEBUNTIS_MOCK_MODE) from the
@@ -317,6 +366,13 @@ export function PreferencesDialog({ open, onOpenChange, onSaved, onWebuntisSaved
       }
 
       setShowUnsavedPrompt(false);
+      setAlternatingWeeks(settings.ALTERNATING_WEEKS);
+      setCreatePartiesForUnderusedDrivers(settings.CREATE_PARTIES_FOR_UNDERUSED_DRIVERS);
+      if (weekModeChanged) {
+        setMembers(members.map(withDefaultTargetDriveCount));
+        setPlan(null);
+        clearTimetableCache();
+      }
       if (closeAfter) {
         onOpenChange(false);
       } else {
@@ -495,7 +551,7 @@ export function PreferencesDialog({ open, onOpenChange, onSaved, onWebuntisSaved
                           id={inputId}
                           type={field.type}
                           min={field.type === 'number' ? 0 : undefined}
-                          value={value}
+                          value={value as string | number}
                           placeholder={
                             keyStored && !clearKey
                               ? DEFAULT_STORED_VALUE_PLACEHOLDER
@@ -683,7 +739,7 @@ export function PreferencesDialog({ open, onOpenChange, onSaved, onWebuntisSaved
                               ) : (
                                 <Circle className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
                               )}
-                              <span className={cn(!done && 'text-muted-foreground')}>
+                              <span className={cn(done && 'text-muted-foreground')}>
                                 {TUTORIAL_STEP_LABELS[step]}
                               </span>
                             </li>
@@ -692,6 +748,11 @@ export function PreferencesDialog({ open, onOpenChange, onSaved, onWebuntisSaved
                       </ul>
                     </div>
                     <div className="flex gap-2 pt-2">
+                      {onCompleteAllTutorial && (
+                        <Button type="button" variant="outline" size="sm" onClick={onCompleteAllTutorial}>
+                          Mark as completed
+                        </Button>
+                      )}
                       {onResetTutorial && (
                         <Button type="button" variant="outline" size="sm" onClick={onResetTutorial}>
                           Reset tutorial
@@ -734,6 +795,49 @@ export function PreferencesDialog({ open, onOpenChange, onSaved, onWebuntisSaved
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!pendingWeekModeSwitch} onOpenChange={(next) => !next && setPendingWeekModeSwitch(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Switch to {settings?.ALTERNATING_WEEKS ? 'alternating (A/B)' : 'non-alternating'} weeks?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <p>Changing the week setting will:</p>
+                <ul className="list-disc pl-5 space-y-1">
+                  {pendingWeekModeSwitch?.hasPlan && (
+                    <li>discard the current driving plan, including manual changes</li>
+                  )}
+                  {pendingWeekModeSwitch && pendingWeekModeSwitch.customDriveCountMembers.length > 0 && (
+                    <li>
+                      reset the custom target drive count of{' '}
+                      {pendingWeekModeSwitch.customDriveCountMembers
+                        .map((member) => `${member.firstName} (${member.shorthand})`)
+                        .join(', ')}{' '}
+                      to the default
+                    </li>
+                  )}
+                </ul>
+                <p>This cannot be undone.</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Back to settings</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                const closeAfter = pendingWeekModeSwitch?.closeAfter ?? true;
+                setPendingWeekModeSwitch(null);
+                savePreferences(closeAfter, true);
+              }}
+            >
+              Switch anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={showUnsavedPrompt} onOpenChange={setShowUnsavedPrompt}>
         <AlertDialogContent>

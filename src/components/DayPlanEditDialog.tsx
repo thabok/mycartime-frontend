@@ -14,6 +14,7 @@ import { AlertTriangle, ArrowRight, Flag, Search, Trash2, UserRoundX, X } from '
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { canApplyTransfers } from '@/lib/dayPlanActions';
+import { useAlternatingWeeks } from '@/hooks/useAlternatingWeeks';
 
 interface Transfer {
   id: string;
@@ -49,27 +50,28 @@ export function DayPlanEditDialog({
   onApplyTransfers,
   members,
 }: DayPlanEditDialogProps) {
+  const [alternatingWeeks] = useAlternatingWeeks();
   const [step, setStep] = useState<Step>('select-passenger');
   const [passengerSearch, setPassengerSearch] = useState('');
   const [targetSearch, setTargetSearch] = useState('');
   const [selectedPassenger, setSelectedPassenger] = useState<{ passenger: string; party: Party } | null>(null);
   const [transfers, setTransfers] = useState<Transfer[]>([]);
 
-  // Create lookup map: initials -> Member
-  const membersByInitials = useMemo(() => {
+  // Create lookup map: shorthand -> Member
+  const membersByShorthand = useMemo(() => {
     const map = new Map<string, Member>();
-    members.forEach(m => map.set(m.initials.toLowerCase(), m));
+    members.forEach(m => map.set(m.shorthand.toLowerCase(), m));
     return map;
   }, [members]);
 
-  // Format initials as "FirstName (Initials)" with non-breaking space
-  const formatPerson = useCallback((initials: string) => {
-    const member = membersByInitials.get(initials.toLowerCase());
+  // Format shorthand as "FirstName (Shorthand)" with non-breaking space
+  const formatPerson = useCallback((shorthand: string) => {
+    const member = membersByShorthand.get(shorthand.toLowerCase());
     if (member) {
-      return `${member.firstName}\u00A0(${member.initials})`;
+      return `${member.firstName}\u00A0(${member.shorthand})`;
     }
-    return initials;
-  }, [membersByInitials]);
+    return shorthand;
+  }, [membersByShorthand]);
 
   const formatTime = (time: number): string => {
     const hours = Math.floor(time / 100);
@@ -77,11 +79,11 @@ export function DayPlanEditDialog({
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
   };
 
-  // Check if a query matches an initials string (by initials or name)
-  // Returns: 0 = no match, 1 = initials match (highest priority), 2 = name match
-  const getMatchScore = useCallback((initials: string, query: string): number => {
-    if (initials.toLowerCase().includes(query)) return 1; // initials match - highest priority
-    const member = membersByInitials.get(initials.toLowerCase());
+  // Check if a query matches an shorthand string (by shorthand or name)
+  // Returns: 0 = no match, 1 = shorthand match (highest priority), 2 = name match
+  const getMatchScore = useCallback((shorthand: string, query: string): number => {
+    if (shorthand.toLowerCase().includes(query)) return 1; // shorthand match - highest priority
+    const member = membersByShorthand.get(shorthand.toLowerCase());
     if (member) {
       if (member.firstName.toLowerCase().includes(query) ||
           member.lastName.toLowerCase().includes(query)) {
@@ -89,10 +91,10 @@ export function DayPlanEditDialog({
       }
     }
     return 0; // no match
-  }, [membersByInitials]);
+  }, [membersByShorthand]);
 
-  const matchesQuery = useCallback((initials: string, query: string): boolean => {
-    return getMatchScore(initials, query) > 0;
+  const matchesQuery = useCallback((shorthand: string, query: string): boolean => {
+    return getMatchScore(shorthand, query) > 0;
   }, [getMatchScore]);
 
   const resetState = () => {
@@ -128,7 +130,7 @@ export function DayPlanEditDialog({
   }, [dayPlan]);
 
   // Filter passengers based on search, excluding already transferred ones
-  // Sort by: initials matches first, then name matches; within each, schoolbound before homebound
+  // Sort by: shorthand matches first, then name matches; within each, schoolbound before homebound
   const filteredPassengers = useMemo(() => {
     const query = passengerSearch.trim().toLowerCase();
     if (!query) return [];
@@ -146,7 +148,7 @@ export function DayPlanEditDialog({
         matchScore: getMatchScore(item.passenger, query),
       }))
       .sort((a, b) => {
-        // Sort by match score first (1 = initials match before 2 = name match)
+        // Sort by match score first (1 = shorthand match before 2 = name match)
         if (a.matchScore !== b.matchScore) return a.matchScore - b.matchScore;
         // Then schoolbound before homebound
         if (a.party.schoolbound !== b.party.schoolbound) {
@@ -164,7 +166,7 @@ export function DayPlanEditDialog({
   }, [passengerSearch, allDrivers, matchesQuery]);
 
   // Filter target parties based on search
-  // Sort by: initials matches first, then name matches; within each, schoolbound before homebound
+  // Sort by: shorthand matches first, then name matches; within each, schoolbound before homebound
   const filteredTargetParties = useMemo(() => {
     if (!selectedPassenger) return [];
     const query = targetSearch.trim().toLowerCase();
@@ -184,7 +186,7 @@ export function DayPlanEditDialog({
         if (party.isLonelyDriver) {
           return false;
         }
-        // Match driver or any passenger by name or initials
+        // Match driver or any passenger by name or shorthand
         const matchesDriver = matchesQuery(party.driver, query);
         const matchesPassenger = party.passengers.some(p => matchesQuery(p, query));
         return matchesDriver || matchesPassenger;
@@ -200,7 +202,7 @@ export function DayPlanEditDialog({
         return { party, matchScore: bestScore === 999 ? 2 : bestScore };
       })
       .sort((a, b) => {
-        // Sort by match score first (1 = initials match before 2 = name match)
+        // Sort by match score first (1 = shorthand match before 2 = name match)
         if (a.matchScore !== b.matchScore) return a.matchScore - b.matchScore;
         // Then schoolbound before homebound
         if (a.party.schoolbound !== b.party.schoolbound) {
@@ -263,7 +265,9 @@ export function DayPlanEditDialog({
 
   if (!dayPlan) return null;
 
-  const dayLabel = `${DAY_NAMES[dayPlan.dayOfWeekABCombo.dayOfWeek]} (Week ${dayPlan.dayOfWeekABCombo.isWeekA ? 'A' : 'B'})`;
+  const dayLabel = alternatingWeeks
+    ? `${DAY_NAMES[dayPlan.dayOfWeekABCombo.dayOfWeek]} (Week ${dayPlan.dayOfWeekABCombo.isWeekA ? 'A' : 'B'})`
+    : DAY_NAMES[dayPlan.dayOfWeekABCombo.dayOfWeek];
 
   // Separate parties by direction for the preview
   const schoolboundParties = dayPlan.parties
@@ -275,9 +279,9 @@ export function DayPlanEditDialog({
 
   const renderPartyPreview = (party: Party, isLast: boolean) => {
     const passengersFormatted = party.passengers.map(p => {
-      const member = membersByInitials.get(p.toLowerCase());
+      const member = membersByShorthand.get(p.toLowerCase());
       if (member) {
-        return `${member.firstName}\u00A0(${member.initials})`;
+        return `${member.firstName}\u00A0(${member.shorthand})`;
       }
       return p;
     });
@@ -401,7 +405,7 @@ export function DayPlanEditDialog({
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Search by name or initials..."
+                    placeholder="Search by name or shorthand..."
                     value={passengerSearch}
                     onChange={(e) => setPassengerSearch(e.target.value)}
                     className="pl-9"

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PartyPopper, Car, Fuel, Coins, Leaf, Github, Heart, X } from 'lucide-react';
-import { Member, DrivingPlan } from '@/types/carpool';
+import { Member, DrivingPlan, planHasAlternatingWeeks } from '@/types/carpool';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { getTotalDriveCount } from '@/lib/planFormat';
 import { Header } from '@/components/Header';
@@ -13,7 +13,7 @@ import { FeedbackDialog } from '@/components/FeedbackDialog';
 // Every assumption below is arbitrary but stated explicitly so the numbers
 // stay honest rather than pretending to be a precise measurement.
 const SCHOOL_DAYS_PER_TERM = 95;
-const TWO_WEEK_CYCLE_DAYS = 10; // 5 weekdays x week A + 5 weekdays x week B
+const WEEKDAYS_PER_WEEK = 5;
 const KM_PER_DRIVE = 100; // 50km one-way, round trip
 const LITERS_PER_100KM = 8;
 const EURO_PER_LITER = 2;
@@ -33,8 +33,9 @@ const Summary = () => {
     return null;
   }
 
+  const cycleDays = planHasAlternatingWeeks(plan) ? WEEKDAYS_PER_WEEK * 2 : WEEKDAYS_PER_WEEK;
   const totalDrivesInCycle = getTotalDriveCount(plan.summary);
-  const avgDrivesPerDay = totalDrivesInCycle / TWO_WEEK_CYCLE_DAYS;
+  const avgDrivesPerDay = totalDrivesInCycle / cycleDays;
   const drivesWithCarpool = Math.round(avgDrivesPerDay * SCHOOL_DAYS_PER_TERM);
   const drivesWithoutCarpool = members.length * SCHOOL_DAYS_PER_TERM;
   const drivesSaved = Math.max(0, drivesWithoutCarpool - drivesWithCarpool);
@@ -44,6 +45,13 @@ const Summary = () => {
   const litersSaved = (kmSaved / 100) * LITERS_PER_100KM;
   const moneySaved = litersSaved * EURO_PER_LITER;
   const co2SavedKg = litersSaved * CO2_KG_PER_LITER;
+
+  const perMember = (value: number) => (members.length > 0 ? value / members.length : 0);
+  const drivesSavedPerMember = perMember(drivesSaved);
+  const kmSavedPerMember = perMember(kmSaved);
+  const litersSavedPerMember = perMember(litersSaved);
+  const moneySavedPerMember = perMember(moneySaved);
+  const co2SavedPerMember = perMember(co2SavedKg);
 
   return (
     <div className="flex flex-col h-screen bg-background">
@@ -76,7 +84,15 @@ const Summary = () => {
             icon={Car}
             label="Drives saved / term"
             value={numberFormat.format(drivesSaved)}
-            tooltip={`Assuming a ${SCHOOL_DAYS_PER_TERM}-day term: without a carpool that's ${numberFormat.format(drivesWithoutCarpool)} drives (${members.length} members x ${SCHOOL_DAYS_PER_TERM} days). Your plan currently averages ${decimalFormat.format(avgDrivesPerDay)} drives/day, i.e. ${numberFormat.format(drivesWithCarpool)} drives for the term - a ${decimalFormat.format(drivesSavedPercent)}% reduction.`}
+            tooltip={
+              <>
+                {`That's ${decimalFormat.format(drivesSavedPerMember)} drives saved per member!`}
+                <br/><br/>
+                {`Assuming a ${SCHOOL_DAYS_PER_TERM}-day term: without a carpool that's ${numberFormat.format(drivesWithoutCarpool)} drives (${members.length} members x ${SCHOOL_DAYS_PER_TERM} days).`}
+                <br/><br/>
+                {`Your plan currently averages ${decimalFormat.format(avgDrivesPerDay)} drives/day, i.e. ${numberFormat.format(drivesWithCarpool)} drives for the term - a ${decimalFormat.format(drivesSavedPercent)}% reduction.`}
+              </>
+            }
           />
 
           <MetricsGrid>
@@ -84,25 +100,53 @@ const Summary = () => {
               icon={Car}
               label="Kilometers saved"
               value={`${numberFormat.format(kmSaved)} km`}
-              tooltip="Assuming 50km per one-way trip (100km round trip) per drive saved."
+              tooltip={
+                <>
+                  {`That's ${decimalFormat.format(kmSavedPerMember)} kilometers saved per member!`}
+                  <br />
+                  <br />
+                  Assuming 50km per one-way trip (100km round trip) per drive.
+                </>
+              }
             />
             <Metric
               icon={Fuel}
               label="Fuel saved"
               value={`${numberFormat.format(Math.round(litersSaved))} L`}
-              tooltip="Assuming 8 liters of fuel per 100km."
+              tooltip={
+                <>
+                  {`That's ${decimalFormat.format(litersSavedPerMember)} liters saved per member!`}
+                  <br />
+                  <br />
+                  Assuming 8 liters of fuel per 100km.
+                </>
+              }
             />
             <Metric
               icon={Coins}
               label="Money saved"
               value={`€${numberFormat.format(Math.round(moneySaved))}`}
-              tooltip="Assuming €2 per liter of fuel."
+              tooltip={
+                <>
+                  {`That's €${decimalFormat.format(moneySavedPerMember)} saved per member!`}
+                  <br />
+                  <br />
+                  Assuming €2 per liter of fuel.
+                </>
+              }
             />
             <Metric
               icon={Leaf}
               label="CO₂ saved"
               value={`${numberFormat.format(Math.round(co2SavedKg))} kg`}
-              tooltip="Assuming 2.3kg of CO₂ per liter of fuel burned."
+              tooltip={
+                <>
+                  {`That's ${decimalFormat.format(co2SavedPerMember)} kg of CO₂ saved per member!`}
+                  <br />
+                  <br />
+                  Assuming 2.3kg of CO₂ per liter of fuel burned.
+                </>
+              }
             />
           </MetricsGrid>
 

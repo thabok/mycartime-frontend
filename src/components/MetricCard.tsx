@@ -45,8 +45,9 @@ export function Metric({
   );
 }
 
-export function MetricsGrid({ children }: { children: ReactNode }) {
-  return <div className="grid grid-cols-2 auto-rows-fr gap-2 sm:grid-cols-4">{children}</div>;
+export function MetricsGrid({ children, columns = 4 }: { children: ReactNode; columns?: 2 | 4 }) {
+  const smColsClass = columns === 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-4';
+  return <div className={`grid grid-cols-2 auto-rows-fr gap-2 ${smColsClass}`}>{children}</div>;
 }
 
 /**

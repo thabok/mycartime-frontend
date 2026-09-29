@@ -4,11 +4,13 @@ import { getWeekMonday } from '@/lib/planDates';
 interface WeekSeparatorProps {
   isWeekA: boolean;
   referenceDate?: Date;
+  alternatingWeeks?: boolean;
 }
 
-export function WeekSeparator({ isWeekA, referenceDate }: WeekSeparatorProps) {
-  const label = isWeekA ? 'Week A' : 'Week B';
-  const dateLabel = referenceDate ? format(getWeekMonday(referenceDate, isWeekA), 'MMM d, yyyy') : null;
+export function WeekSeparator({ isWeekA, referenceDate, alternatingWeeks = true }: WeekSeparatorProps) {
+  const label = !alternatingWeeks ? 'Every week' : isWeekA ? 'Week A' : 'Week B';
+  const monday = referenceDate ? format(getWeekMonday(referenceDate, isWeekA), 'MMM d, yyyy') : null;
+  const dateLabel = monday && !alternatingWeeks ? `from ${monday}` : monday;
 
   return (
     <div className="relative">

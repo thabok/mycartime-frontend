@@ -39,7 +39,7 @@ export function canTransferPassenger(dayPlan: DayPlan, transfer: Transfer): bool
 export function canApplyTransfers(dayPlan: DayPlan, transfers: Transfer[], members: Member[]): boolean {
   if (!transfers.every(transfer => canTransferPassenger(dayPlan, transfer))) return false;
 
-  const seatsByInitials = new Map(members.map(m => [m.initials.toLowerCase(), m.numberOfSeats]));
+  const seatsByShorthand = new Map(members.map(m => [m.shorthand.toLowerCase(), m.numberOfSeats]));
   const key = (ref: PartyRef) => `${ref.driver}-${ref.time}`;
   const netChange = new Map<string, number>();
   transfers.forEach(transfer => {
@@ -50,7 +50,7 @@ export function canApplyTransfers(dayPlan: DayPlan, transfers: Transfer[], membe
   return dayPlan.parties.every(party => {
     const change = netChange.get(key(party)) ?? 0;
     if (change <= 0) return true;
-    const seats = seatsByInitials.get(party.driver.toLowerCase());
+    const seats = seatsByShorthand.get(party.driver.toLowerCase());
     if (seats === undefined) return true;
     return party.passengers.length + change <= seats - 1;
   });

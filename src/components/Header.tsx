@@ -18,6 +18,7 @@ interface HeaderProps {
   onWebuntisSaved?: (configured: boolean) => void;
   onResetTutorial?: () => void;
   onShowTutorial?: () => void;
+  onCompleteAllTutorial?: () => void;
   tutorialProgress?: TutorialProgress;
   tutorialHighlightSettings?: boolean;
   tutorialOpenSettingsRequest?: number;
@@ -37,6 +38,7 @@ export function Header({
   onWebuntisSaved,
   onResetTutorial,
   onShowTutorial,
+  onCompleteAllTutorial,
   tutorialProgress,
   tutorialHighlightSettings = false,
   tutorialOpenSettingsRequest,
@@ -158,6 +160,7 @@ export function Header({
         onWebuntisSaved={onWebuntisSaved}
         onResetTutorial={onResetTutorial}
         onShowTutorial={onShowTutorial}
+        onCompleteAllTutorial={onCompleteAllTutorial}
         tutorialProgress={tutorialProgress}
         initialCategory={
           tutorialOpenAiAssistantSettings

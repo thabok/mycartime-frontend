@@ -1,16 +1,16 @@
 import { Fragment, useState, useMemo, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
-import { DrivingPlan, DayPlan, Party, Member, DayOfWeekABCombo } from '@/types/carpool';
+import { DrivingPlan, DayPlan, Party, Member, DayOfWeekABCombo, planHasAlternatingWeeks } from '@/types/carpool';
 import { partyKey } from '@/lib/planDiff';
-import { DAY_NAMES, formatTime, buildMembersByInitials } from '@/lib/planFormat';
+import { DAY_NAMES, formatTime, buildMembersByShorthand } from '@/lib/planFormat';
 import { getWeekMonday } from '@/lib/planDates';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Pencil, Users, FileText, Download, Image, ListChecks, Trash2, Flag, UserRoundX, Clock, X, AlertTriangle } from 'lucide-react';
 import { cn, downloadJson } from '@/lib/utils';
-import { buildPlanPngZip, saveZip } from '@/lib/exportPng';
+import { buildPlanPngExport, saveExport } from '@/lib/exportPng';
 import { PlanQualityMetrics } from './PlanQualityMetrics';
 import { OptimizationPriorities } from './OptimizationPriorities';
 import { DayPlanEditDialog } from './DayPlanEditDialog';
@@ -18,6 +18,7 @@ import { MemberDialog } from './MemberDialog';
 import { WeekSeparator } from './WeekSeparator';
 import { useToast } from '@/hooks/use-toast';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useCreatePartiesForUnderusedDrivers } from '@/hooks/useCreatePartiesForUnderusedDrivers';
 import { applyTransfers, canApplyTransfers } from '@/lib/dayPlanActions';
 
 interface PlanViewerProps {
@@ -66,7 +67,7 @@ interface Transfer {
 }
 
 interface SelectedMemberInfo {
-  initials: string;
+  shorthand: string;
   dayPlan: DayPlan;
   party: Party;
 }
@@ -78,7 +79,14 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
-  const weekFilter: WeekFilter = WEEK_FILTERS.includes(tabParam as WeekFilter) ? (tabParam as WeekFilter) : 'summary';
+  const alternatingWeeks = planHasAlternatingWeeks(plan);
+  const [createPartiesForUnderusedDrivers] = useCreatePartiesForUnderusedDrivers();
+  const availableFilters: WeekFilter[] = alternatingWeeks ? WEEK_FILTERS : ['summary', 'all'];
+  // A leftover ?tab=A/B (e.g. a bookmark) falls back to the whole plan when
+  // the plan has no separate weeks.
+  const weekFilter: WeekFilter = availableFilters.includes(tabParam as WeekFilter)
+    ? (tabParam as WeekFilter)
+    : tabParam === 'A' || tabParam === 'B' ? 'all' : 'summary';
   const personFilter = searchParams.get('q') ?? '';
   const selectedMemberParam = searchParams.get('member');
   const selectedDayParam = searchParams.get('day');
@@ -111,14 +119,14 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
       p => p.driver === selectedDriverParam && p.time.toString() === selectedTimeParam
     );
     if (!party) return null;
-    return { initials: selectedMemberParam, dayPlan, party };
+    return { shorthand: selectedMemberParam, dayPlan, party };
   }, [plan, selectedMemberParam, selectedDayParam, selectedDriverParam, selectedTimeParam]);
 
   const setSelectedMember = (info: SelectedMemberInfo | null) => {
     setSearchParams(prev => {
       const next = new URLSearchParams(prev);
       if (info) {
-        next.set('member', info.initials);
+        next.set('member', info.shorthand);
         next.set('day', info.dayPlan.dayOfWeekABCombo.uniqueNumber.toString());
         next.set('driver', info.party.driver);
         next.set('time', info.party.time.toString());
@@ -142,29 +150,29 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
   const [showDrivesDespitePrefs, setShowDrivesDespitePrefs] = useLocalStorage('carpool-show-drives-despite-prefs', true);
   const { toast } = useToast();
 
-  // Create lookup map: initials -> Member
-  const membersByInitials = useMemo(() => buildMembersByInitials(members), [members]);
+  // Create lookup map: shorthand -> Member
+  const membersByShorthand = useMemo(() => buildMembersByShorthand(members), [members]);
 
-  // Initials referenced by the plan that no longer resolve to a current member
+  // Shorthand referenced by the plan that no longer resolve to a current member
   // (i.e. that member was removed after this plan was generated). The plan
-  // falls back to showing raw initials for them since their full data can no
+  // falls back to showing raw shorthand for them since their full data can no
   // longer be retrieved.
-  const missingMemberInitials = useMemo(() => {
+  const missingMemberShorthand = useMemo(() => {
     const missing = new Set<string>();
     Object.values(plan.dayPlans).forEach(dayPlan => {
       dayPlan.parties.forEach(party => {
-        if (!membersByInitials.has(party.driver.toLowerCase())) missing.add(party.driver);
+        if (!membersByShorthand.has(party.driver.toLowerCase())) missing.add(party.driver);
         party.passengers.forEach(p => {
-          if (!membersByInitials.has(p.toLowerCase())) missing.add(p);
+          if (!membersByShorthand.has(p.toLowerCase())) missing.add(p);
         });
       });
     });
     return missing;
-  }, [plan, membersByInitials]);
+  }, [plan, membersByShorthand]);
 
-  // Initials of members who drive at least once despite a "no car" custom
+  // Shorthand of members who drive at least once despite a "no car" custom
   // preference somewhere in the plan, for the summary-page warning indicator.
-  const initialsDrivingDespitePrefs = useMemo(() => {
+  const shorthandDrivingDespitePrefs = useMemo(() => {
     const flagged = new Set<string>();
     Object.values(plan.dayPlans).forEach(dayPlan => {
       dayPlan.parties.forEach(party => {
@@ -174,17 +182,53 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
     return flagged;
   }, [plan]);
 
-  // Format initials as "FirstName (Initials)" with non-breaking space
-  const formatPerson = useCallback((initials: string) => {
-    const member = membersByInitials.get(initials.toLowerCase());
+  // Format shorthand as "FirstName (Shorthand)" with non-breaking space
+  const formatPerson = useCallback((shorthand: string) => {
+    const member = membersByShorthand.get(shorthand.toLowerCase());
     if (member) {
-      return `${member.firstName}\u00A0(${member.initials})`;
+      return `${member.firstName}\u00A0(${member.shorthand})`;
     }
-    return initials;
-  }, [membersByInitials]);
+    return shorthand;
+  }, [membersByShorthand]);
 
-  const openCustomDays = (initials: string, dayCombo?: DayOfWeekABCombo) => {
-    const member = membersByInitials.get(initials.toLowerCase());
+  // People behind shorthandDrivingDespitePrefs, sorted by first name, for the
+  // summary-page warning box message.
+  const driversDespitePrefsLabels = useMemo(() => {
+    return Array.from(shorthandDrivingDespitePrefs)
+      .map(shorthand => ({
+        shorthand,
+        label: formatPerson(shorthand),
+        firstName: membersByShorthand.get(shorthand)?.firstName ?? shorthand,
+      }))
+      .sort((a, b) => a.firstName.localeCompare(b.firstName))
+      .map(({ label }) => label);
+  }, [shorthandDrivingDespitePrefs, membersByShorthand, formatPerson]);
+
+  // "Blaze (Bz), Harry (Hp) and Cho (Cc) drive on a day where..." / with more
+  // than 3 people: "...(Cc) and 3 others drive on a day where...".
+  const drivesDespitePrefsMessage = useMemo(() => {
+    const total = driversDespitePrefsLabels.length;
+    if (total === 0) return null;
+    const shown = driversDespitePrefsLabels.slice(0, 3);
+    const extra = total - shown.length;
+    const namesText = extra > 0
+      ? `${shown.join(', ')} and ${extra} ${extra === 1 ? 'other' : 'others'}`
+      : shown.length === 1
+        ? shown[0]
+        : `${shown.slice(0, -1).join(', ')} and ${shown[shown.length - 1]}`;
+    const verb = total === 1 ? 'drives' : 'drive';
+    return (
+      <>
+        {namesText} {verb} on a day where{' '}
+        <code className="px-1 py-0.5 rounded bg-muted font-mono text-xs">no car</code>{' '}
+        was specified, because no other solution is available. Consider adding custom
+        start/end times, so they can join another party.
+      </>
+    );
+  }, [driversDespitePrefsLabels]);
+
+  const openCustomDays = (shorthand: string, dayCombo?: DayOfWeekABCombo) => {
+    const member = membersByShorthand.get(shorthand.toLowerCase());
     if (!member) return;
     setCustomDaysMember(member);
     setCustomDaysHighlightDay(dayCombo ?? null);
@@ -193,21 +237,23 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
 
   const handleSaveCustomDaysMember = (updated: Member) => {
     if (!customDaysMember) return;
-    onMembersChange(members.map(m => m.initials === customDaysMember.initials ? updated : m));
+    onMembersChange(members.map(m => m.shorthand === customDaysMember.shorthand ? updated : m));
   };
 
   const renderMemberInfoPane = () => {
     if (!selectedMember) return null;
 
-    const member = membersByInitials.get(selectedMember.initials.toLowerCase());
+    const member = membersByShorthand.get(selectedMember.shorthand.toLowerCase());
     if (!member) return null;
 
     const dayCombo = selectedMember.dayPlan.dayOfWeekABCombo;
-    const dayLabel = `${DAY_NAMES[dayCombo.dayOfWeek]}, Week ${dayCombo.isWeekA ? 'A' : 'B'}`;
+    const dayLabel = alternatingWeeks
+      ? `${DAY_NAMES[dayCombo.dayOfWeek]}, Week ${dayCombo.isWeekA ? 'A' : 'B'}`
+      : DAY_NAMES[dayCombo.dayOfWeek];
 
     const timeInfo = selectedMember.party.schoolbound
-      ? selectedMember.dayPlan.schoolboundTimeInfoByInitials?.[selectedMember.initials]
-      : selectedMember.dayPlan.homeboundTimeInfoByInitials?.[selectedMember.initials];
+      ? selectedMember.dayPlan.schoolboundTimeInfoByShorthand?.[selectedMember.shorthand]
+      : selectedMember.dayPlan.homeboundTimeInfoByShorthand?.[selectedMember.shorthand];
 
     // Custom day preferences (keys are 0-based day indices, uniqueNumber is 1-based)
     const customDay = member.customDays?.[(dayCombo.uniqueNumber - 1).toString()];
@@ -220,12 +266,12 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
     // Determine which party member's own requirement (custom preference, or failing
     // that their plain timetable) is what's pushing the party's time earlier
     // (schoolbound) / later (homebound) than the driver's own timetable would.
-    const timeInfoByInitials = selectedMember.party.schoolbound
-      ? selectedMember.dayPlan.schoolboundTimeInfoByInitials
-      : selectedMember.dayPlan.homeboundTimeInfoByInitials;
-    const causesEarlierOrLater = (initials: string): boolean => {
+    const timeInfoByShorthand = selectedMember.party.schoolbound
+      ? selectedMember.dayPlan.schoolboundTimeInfoByShorthand
+      : selectedMember.dayPlan.homeboundTimeInfoByShorthand;
+    const causesEarlierOrLater = (shorthand: string): boolean => {
       const partyTime = selectedMember.party.time;
-      const driverInfo = timeInfoByInitials?.[selectedMember.party.driver];
+      const driverInfo = timeInfoByShorthand?.[selectedMember.party.driver];
       if (!driverInfo || driverInfo.timetableTime == null) return false;
 
       const deviatesFromDriverDefault = selectedMember.party.schoolbound
@@ -233,24 +279,24 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
         : partyTime > driverInfo.timetableTime;
       if (!deviatesFromDriverDefault) return false;
 
-      const info = timeInfoByInitials?.[initials];
+      const info = timeInfoByShorthand?.[shorthand];
       const personalRequiredTime = info?.customPrefTime ?? info?.timetableTime;
       return personalRequiredTime === partyTime;
     };
 
-    const renderPartyPerson = (initials: string, bold: boolean) => (
+    const renderPartyPerson = (shorthand: string, bold: boolean) => (
       <button
-        key={initials}
-        onClick={() => setSelectedMember({ initials, dayPlan: selectedMember.dayPlan, party: selectedMember.party })}
+        key={shorthand}
+        onClick={() => setSelectedMember({ shorthand, dayPlan: selectedMember.dayPlan, party: selectedMember.party })}
         className={cn(
           "cursor-pointer transition-colors hover:text-primary hover:underline",
           bold && "font-bold",
-          selectedMember.initials === initials && "text-primary underline"
+          selectedMember.shorthand === shorthand && "text-primary underline"
         )}
-        title={causesEarlierOrLater(initials) ? `Makes this party leave ${selectedMember.party.schoolbound ? 'earlier' : 'later'}` : undefined}
+        title={causesEarlierOrLater(shorthand) ? `Makes this party leave ${selectedMember.party.schoolbound ? 'earlier' : 'later'}` : undefined}
       >
-        {causesEarlierOrLater(initials) && '* '}
-        {formatPerson(initials)}
+        {causesEarlierOrLater(shorthand) && '* '}
+        {formatPerson(shorthand)}
       </button>
     );
 
@@ -261,13 +307,13 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
             <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium">Member Details</p>
             <p className="text-lg font-semibold">
               <button
-                onClick={() => openCustomDays(member.initials, dayCombo)}
+                onClick={() => openCustomDays(member.shorthand, dayCombo)}
                 className="hover:text-primary hover:underline transition-colors"
                 title="Timetable"
               >
                 {member.firstName} {member.lastName}
               </button>
-              <span className="text-muted-foreground ml-2">({member.initials})</span>
+              <span className="text-muted-foreground ml-2">({member.shorthand})</span>
               {prefLabels.length > 0 && (
                 <span className="text-sm text-muted-foreground font-normal ml-2">
                   ({prefLabels.join(', ')})
@@ -319,17 +365,17 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
 
           <div className="space-y-1 pt-2">
             <p className="font-medium">
-              Party <span className="text-muted-foreground">({membersByInitials.get(selectedMember.party.driver.toLowerCase())?.numberOfSeats ?? 'unknown'} seats)</span>
+              Party <span className="text-muted-foreground">({membersByShorthand.get(selectedMember.party.driver.toLowerCase())?.numberOfSeats ?? 'unknown'} seats)</span>
             </p>
             <p className="text-muted-foreground pl-3">
               [{formatTime(selectedMember.party.time)}] {renderPartyPerson(selectedMember.party.driver, true)}
               {selectedMember.party.passengers.length > 0 && (
                 <>
                   {' · '}
-                  {selectedMember.party.passengers.map((initials, idx) => (
-                    <span key={initials}>
+                  {selectedMember.party.passengers.map((shorthand, idx) => (
+                    <span key={shorthand}>
                       {idx > 0 && ' · '}
-                      {renderPartyPerson(initials, false)}
+                      {renderPartyPerson(shorthand, false)}
                     </span>
                   ))}
                 </>
@@ -364,17 +410,17 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
         if (personFilter.trim()) {
           const query = personFilter.trim().toLowerCase();
           const hasPersonInParties = dayPlan.parties.some(party => {
-            // Check driver by initials or name
-            const driverMember = membersByInitials.get(party.driver.toLowerCase());
+            // Check driver by shorthand or name
+            const driverMember = membersByShorthand.get(party.driver.toLowerCase());
             const driverMatches = party.driver.toLowerCase().includes(query) ||
               (driverMember && (
                 driverMember.firstName.toLowerCase().includes(query) ||
                 driverMember.lastName.toLowerCase().includes(query)
               ));
             
-            // Check passengers by initials or name
+            // Check passengers by shorthand or name
             const passengerMatches = party.passengers.some(p => {
-              const passengerMember = membersByInitials.get(p.toLowerCase());
+              const passengerMember = membersByShorthand.get(p.toLowerCase());
               return p.toLowerCase().includes(query) ||
                 (passengerMember && (
                   passengerMember.firstName.toLowerCase().includes(query) ||
@@ -390,7 +436,7 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
         return true;
       })
       .sort(([a], [b]) => parseInt(a) - parseInt(b));
-  }, [plan, weekFilter, personFilter, membersByInitials]);
+  }, [plan, weekFilter, personFilter, membersByShorthand]);
 
   const handleEditDay = (dayPlan: DayPlan) => {
     setEditingDayPlan(dayPlan);
@@ -404,9 +450,9 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
   };
 
   const handleExportPng = async () => {
-    toast({ title: 'Preparing PNGs', description: 'This can take a few seconds…' });
+    toast({ title: alternatingWeeks ? 'Preparing PNGs' : 'Preparing PNG', description: 'This can take a few seconds…' });
     try {
-      const blob = await buildPlanPngZip({
+      const exported = await buildPlanPngExport({
         plan,
         members,
         referenceDate,
@@ -419,10 +465,13 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
       // two separate files) because browsers throttle/drop automatically
       // triggered downloads fired back-to-back without a fresh user gesture.
       const weekAMonday = referenceDate ? format(getWeekMonday(referenceDate, true), 'yyyy-MM-dd') : '';
-      const saved = await saveZip(blob, weekAMonday ? `driving-plan-${weekAMonday}.zip` : 'driving-plan.zip');
+      const saved = await saveExport(exported, weekAMonday ? `driving-plan-${weekAMonday}` : 'driving-plan');
       if (!saved) return;
 
-      toast({ title: 'Exported', description: 'Week A and Week B saved as a ZIP of PNGs.' });
+      toast({
+        title: 'Exported',
+        description: alternatingWeeks ? 'Week A and Week B saved as a ZIP of PNGs.' : 'Driving plan saved as a PNG.',
+      });
       onPngExported?.();
       navigate('/summary');
     } catch (err) {
@@ -444,7 +493,7 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
   const renderPartyLine = (party: Party, dayPlan: DayPlan, dayKey: string, filterQuery: string, isLast: boolean) => {
     const isModified = modifiedPartyKeys?.has(partyKey(dayKey, party)) ?? false;
     const query = filterQuery.trim().toLowerCase();
-    const driverMember = membersByInitials.get(party.driver.toLowerCase());
+    const driverMember = membersByShorthand.get(party.driver.toLowerCase());
     const isDriverHighlighted = query && (
       party.driver.toLowerCase().includes(query) ||
       (driverMember && (
@@ -452,10 +501,10 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
         driverMember.lastName.toLowerCase().includes(query)
       ))
     );
-    const isDriverSelected = selectedMember?.initials === party.driver && selectedMember?.party === party;
+    const isDriverSelected = selectedMember?.shorthand === party.driver && selectedMember?.party === party;
     
     const passengersFormatted = party.passengers.map(p => {
-      const member = membersByInitials.get(p.toLowerCase());
+      const member = membersByShorthand.get(p.toLowerCase());
       const isPassengerHighlighted = query && (
         p.toLowerCase().includes(query) ||
         (member && (
@@ -463,12 +512,12 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
           member.lastName.toLowerCase().includes(query)
         ))
       );
-      const displayText = member ? `${member.firstName}\u00A0(${member.initials})` : p;
-      const isPassengerSelected = selectedMember?.initials === p && selectedMember?.party === party;
+      const displayText = member ? `${member.firstName}\u00A0(${member.shorthand})` : p;
+      const isPassengerSelected = selectedMember?.shorthand === p && selectedMember?.party === party;
       
       return {
         text: displayText,
-        initials: p,
+        shorthand: p,
         highlighted: isPassengerHighlighted,
         selected: isPassengerSelected
       };
@@ -483,7 +532,7 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
         <span className="text-muted-foreground font-mono">[{formatTime(party.time)}]</span>
         {' '}
         <button
-          onClick={() => setSelectedMember({ initials: party.driver, dayPlan, party })}
+          onClick={() => setSelectedMember({ shorthand: party.driver, dayPlan, party })}
           className={cn(
             "font-semibold cursor-pointer transition-all",
             isDriverHighlighted && "text-primary",
@@ -508,7 +557,7 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
               <span key={idx}>
                 {idx > 0 && ' · '}
                 <button
-                  onClick={() => setSelectedMember({ initials: p.initials, dayPlan, party })}
+                  onClick={() => setSelectedMember({ shorthand: p.shorthand, dayPlan, party })}
                   className={cn(
                     "cursor-pointer transition-all",
                     p.highlighted && "text-primary font-semibold",
@@ -545,9 +594,11 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
           <div>
             {DAY_NAMES[dayOfWeekABCombo.dayOfWeek]}
           </div>
-          <div className="text-xs text-muted-foreground">
-            ({dayOfWeekABCombo.isWeekA ? 'A' : 'B'})
-          </div>
+          {alternatingWeeks && (
+            <div className="text-xs text-muted-foreground">
+              ({dayOfWeekABCombo.isWeekA ? 'A' : 'B'})
+            </div>
+          )}
         </td>
         <td className="py-1.5 px-4 align-top">
           {schoolboundParties.length > 0 ? (
@@ -591,13 +642,13 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
 
   return (
     <div className="space-y-4 animate-fade-in">
-      {missingMemberInitials.size > 0 && (
+      {missingMemberShorthand.size > 0 && (
         <div className="p-3 rounded-md bg-muted/50 border border-border/50 text-sm text-muted-foreground flex items-start gap-2">
           <AlertTriangle className="h-4 w-4 mt-0.5 text-yellow-500 flex-shrink-0" />
           <div className="space-y-1">
             <div>
-              This plan references {missingMemberInitials.size === 1 ? 'a member' : 'members'} no longer in the group
-              ({Array.from(missingMemberInitials).join(', ')}), so only their initials can be shown &mdash; their full
+              This plan references {missingMemberShorthand.size === 1 ? 'a member' : 'members'} no longer in the group
+              ({Array.from(missingMemberShorthand).join(', ')}), so only their shorthand can be shown &mdash; their full
               data can no longer be retrieved. We recommend discarding this plan and generating a new one.
             </div>
             <Button variant="outline" size="sm" onClick={handleDiscardPlan} className="h-8">
@@ -614,16 +665,20 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
               <FileText className="h-4 w-4" />
               Summary
             </TabsTrigger>
-            <TabsTrigger value="A" className="text-sm px-4">Week A</TabsTrigger>
-            <TabsTrigger value="B" className="text-sm px-4">Week B</TabsTrigger>
-            <TabsTrigger value="all" className="text-sm px-4">Complete Plan</TabsTrigger>
+            {alternatingWeeks && (
+              <>
+                <TabsTrigger value="A" className="text-sm px-4">Week A</TabsTrigger>
+                <TabsTrigger value="B" className="text-sm px-4">Week B</TabsTrigger>
+              </>
+            )}
+            <TabsTrigger value="all" className="text-sm px-4">{alternatingWeeks ? 'Complete Plan' : 'Plan'}</TabsTrigger>
           </TabsList>
 
           <div className="flex items-center gap-2">
             {weekFilter !== 'summary' && (
               <div className="relative w-full sm:w-56">
                 <Input
-                  placeholder="filter by name or initials"
+                  placeholder="filter by name or shorthand"
                   value={personFilter}
                   onChange={(e) => setPersonFilter(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Escape') setPersonFilter(''); }}
@@ -634,7 +689,7 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
             <Button variant="outline" size="sm" onClick={handleExportPlan} className="h-9" title="Export JSON">
               <Download className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="sm" onClick={handleExportPng} className={cn('h-9', tutorialHighlightExport && 'ring-2 ring-primary ring-offset-2 animate-tutorial-highlight')} title="Export Week A / Week B as PNG" data-tutorial-highlight={tutorialHighlightExport || undefined}>
+            <Button variant="outline" size="sm" onClick={handleExportPng} className={cn('h-9', tutorialHighlightExport && 'ring-2 ring-primary ring-offset-2 animate-tutorial-highlight')} title={alternatingWeeks ? 'Export Week A / Week B as PNG' : 'Export as PNG'} data-tutorial-highlight={tutorialHighlightExport || undefined}>
               <Image className="h-4 w-4" />
             </Button>
             <Button variant="outline" size="sm" onClick={() => navigate('/summary')} className="h-9" title="View Summary">
@@ -647,20 +702,26 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
         </div>
 
         <TabsContent value="summary" className="mt-4">
+          {showDrivesDespitePrefs && drivesDespitePrefsMessage && (
+            <div className="mb-4 p-3 rounded-md bg-muted/50 border border-border/50 text-sm text-muted-foreground flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 mt-0.5 text-amber-500 flex-shrink-0" />
+              <div>{drivesDespitePrefsMessage}</div>
+            </div>
+          )}
           {(() => {
-            // Parse summary text: "- Name (Initials): Count"
+            // Parse summary text: "- Name (Shorthand): Count"
             const lines = plan.summary.split('\n').filter(line => line.trim());
-            const driveCounts = new Map<number, Array<{ name: string; initials: string }>>();
+            const driveCounts = new Map<number, Array<{ name: string; shorthand: string }>>();
             
             lines.forEach(line => {
               const match = line.match(/^-\s*(.+?)\s*\(([^)]+)\):\s*(\d+)$/);
               if (match) {
-                const [, name, initials, countStr] = match;
+                const [, name, shorthand, countStr] = match;
                 const count = parseInt(countStr, 10);
                 if (!driveCounts.has(count)) {
                   driveCounts.set(count, []);
                 }
-                driveCounts.get(count)!.push({ name: name.trim(), initials: initials.trim() });
+                driveCounts.get(count)!.push({ name: name.trim(), shorthand: shorthand.trim() });
               }
             });
 
@@ -670,7 +731,7 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
               .map(([count, people]) => [
                 count,
                 people.sort((a, b) => a.name.localeCompare(b.name))
-              ] as [number, Array<{ name: string; initials: string }>]);
+              ] as [number, Array<{ name: string; shorthand: string }>]);
 
             return (
               <div className="rounded-lg border border-border overflow-hidden">
@@ -690,22 +751,22 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
                     <div className="px-4 py-3">
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
                         {people.map((person) => {
-                          const member = membersByInitials.get(person.initials.toLowerCase());
+                          const member = membersByShorthand.get(person.shorthand.toLowerCase());
                           return (
                             <button
-                              key={person.initials}
-                              onClick={() => openCustomDays(person.initials)}
+                              key={person.shorthand}
+                              onClick={() => openCustomDays(person.shorthand)}
                               className="text-sm text-muted-foreground hover:font-bold cursor-pointer transition-all text-left inline-flex items-center gap-1"
                               title="Timetable"
                             >
                               <span>
                                 {person.name}
-                                <span className="ml-1">({person.initials})</span>
+                                <span className="ml-1">({person.shorthand})</span>
                               </span>
                               {member?.isPartTime && (
                                 <Clock className="h-3 w-3 text-muted-foreground/60 shrink-0" aria-label="Part-time" />
                               )}
-                              {showDrivesDespitePrefs && initialsDrivingDespitePrefs.has(person.initials.toLowerCase()) && (
+                              {showDrivesDespitePrefs && shorthandDrivingDespitePrefs.has(person.shorthand.toLowerCase()) && (
                                 <AlertTriangle className="h-3 w-3 text-amber-500 shrink-0" aria-label="Drives despite no-car preference" />
                               )}
                             </button>
@@ -721,12 +782,15 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
           {plan.qualityMetrics && (
             <div className="mt-4 space-y-2">
               <PlanQualityMetrics metrics={plan.qualityMetrics} />
-              <OptimizationPriorities />
+              <OptimizationPriorities
+                alternatingWeeks={alternatingWeeks}
+                createPartiesForUnderusedDrivers={createPartiesForUnderusedDrivers}
+              />
             </div>
           )}
         </TabsContent>
 
-        {['A', 'B', 'all'].map((tabValue) => (
+        {availableFilters.filter((tabValue) => tabValue !== 'summary').map((tabValue) => (
           <TabsContent key={tabValue} value={tabValue} className="mt-4 space-y-4">
             {/* Table */}
             <div className="rounded-lg border border-border overflow-hidden">
@@ -741,7 +805,7 @@ export function PlanViewer({ plan, onPlanChange, members, onMembersChange, refer
                 </thead>
                 <tbody>
                   {filteredDayPlans.map(([dayKey, dayPlan], idx) => {
-                    const needsSeparator = dayPlan.dayOfWeekABCombo.dayOfWeek === 'MONDAY';
+                    const needsSeparator = alternatingWeeks && dayPlan.dayOfWeekABCombo.dayOfWeek === 'MONDAY';
 
                     return (
                       <Fragment key={dayKey}>

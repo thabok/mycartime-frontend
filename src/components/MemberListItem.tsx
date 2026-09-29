@@ -19,7 +19,7 @@ export function MemberListItem({ member, onEdit, onEditCustom, onDelete }: Membe
       onClick={() => onEdit(member)}
     >
       <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-semibold text-sm flex-shrink-0">
-        {member.initials}
+        {member.shorthand}
       </div>
       
       <div className="flex-1 min-w-0">

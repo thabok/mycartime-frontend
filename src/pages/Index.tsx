@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { parseISO } from 'date-fns';
-import { Member, DrivingPlan, ViewMode } from '@/types/carpool';
+import { Member, DrivingPlan, ViewMode, planHasAlternatingWeeks } from '@/types/carpool';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useAssistant } from '@/hooks/useAssistant';
 import { useAssistantAvailability } from '@/hooks/useAssistantAvailability';
+import { useAlternatingWeeks } from '@/hooks/useAlternatingWeeks';
+import { useCreatePartiesForUnderusedDrivers } from '@/hooks/useCreatePartiesForUnderusedDrivers';
 import { diffModifiedPartyKeys } from '@/lib/planDiff';
 import { getBackendUrl } from '@/lib/config';
 import { Header } from '@/components/Header';
@@ -41,6 +43,8 @@ const Index = () => {
   const [settingsRequest, setSettingsRequest] = useState<number>();
   const [openWebuntisSettingsRequest, setOpenWebuntisSettingsRequest] = useState<number>();
   const [webuntisConfigured, setWebuntisConfigured] = useState(false);
+  const [, setAlternatingWeeks] = useAlternatingWeeks();
+  const [, setCreatePartiesForUnderusedDrivers] = useCreatePartiesForUnderusedDrivers();
   const location = useLocation();
   const navigate = useNavigate();
   const viewMode: ViewMode = location.pathname.startsWith('/plan') ? 'plan' : 'members';
@@ -48,6 +52,21 @@ const Index = () => {
   const tab = new URLSearchParams(location.search).get('tab');
   const isSummary = !tab || tab === 'summary';
   const isPlanSchedule = tab === 'A' || tab === 'B' || tab === 'all';
+
+  // One-time migration: members saved before the "initials" -> "shorthand"
+  // rename are still in localStorage under the old field name.
+  useEffect(() => {
+    setMembers((prev) => {
+      let changed = false;
+      const migrated = (prev as (Member & { initials?: string })[]).map(({ initials, ...member }) => {
+        if (member.shorthand || !initials) return member;
+        changed = true;
+        return { ...member, shorthand: initials };
+      });
+      return changed ? migrated : prev;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -65,10 +84,14 @@ const Index = () => {
           // needs a username or password/secret - the server URL alone
           // makes WebUntis "configured".
           WEBUNTIS_MOCK_MODE?: boolean;
+          ALTERNATING_WEEKS?: boolean;
+          CREATE_PARTIES_FOR_UNDERUSED_DRIVERS?: boolean;
         }>;
       })
       .then((settings) => {
         if (cancelled) return;
+        setAlternatingWeeks(settings.ALTERNATING_WEEKS === true);
+        setCreatePartiesForUnderusedDrivers(settings.CREATE_PARTIES_FOR_UNDERUSED_DRIVERS !== false);
         const hasPasswordOrSecret = settings.WEBUNTIS_AUTH_MODE === 'secret'
           ? Boolean(settings.WEBUNTIS_SECRET_SET)
           : Boolean(settings.WEBUNTIS_PASSWORD_SET);
@@ -85,6 +108,8 @@ const Index = () => {
     return () => {
       cancelled = true;
     };
+    // Load once on mount; setAlternatingWeeks' identity changes with its value.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const completeTutorialStep = useCallback((step: TutorialStep) => {
@@ -130,7 +155,7 @@ const Index = () => {
         break;
       case 'manualChanges':
       case 'export':
-        navigate('/plan?tab=A');
+        navigate(`/plan?tab=${plan && !planHasAlternatingWeeks(plan) ? 'all' : 'A'}`);
         break;
       case 'plan':
         navigate('/plan');
@@ -145,6 +170,14 @@ const Index = () => {
   };
 
   const showTutorial = () => setTutorialOpen(true);
+
+  const completeAllTutorial = () => {
+    setTutorialProgress(
+      TUTORIAL_STEPS.reduce((acc, step) => ({ ...acc, [step]: true }), {} as TutorialProgress)
+    );
+    setResultVisits({ summary: true, plan: true });
+    setTutorialOpen(false);
+  };
 
   // Whenever the plan is replaced - whether via the Day Plan Editor, a direct
   // API call (generate/import), or the AI assistant - diff it against the
@@ -199,6 +232,7 @@ const Index = () => {
         onWebuntisSaved={setWebuntisConfigured}
         onResetTutorial={resetTutorial}
         onShowTutorial={showTutorial}
+        onCompleteAllTutorial={completeAllTutorial}
         tutorialProgress={tutorialProgress}
         tutorialHighlightSettings={tutorialOpen && tutorialStep === 'webuntis'}
         tutorialOpenSettingsRequest={settingsRequest}

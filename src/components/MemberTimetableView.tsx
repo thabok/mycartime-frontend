@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { useWebuntisCredentials } from '@/hooks/useWebuntisCredentials';
+import { useAlternatingWeeks } from '@/hooks/useAlternatingWeeks';
 import { DAY_NAMES, formatTime } from '@/lib/planFormat';
 import { getCachedMemberTimetable, fetchMemberTimetableDetail, setCachedMemberTimetable } from '@/lib/timetableCache';
 
@@ -480,7 +481,9 @@ function computeVisualEntries(positioned: PositionedEntry[], rangeStart: number)
 
 export function MemberTimetableView({ member, referenceDate, initialWeekA, initialHighlightDay }: MemberTimetableViewProps) {
   const { hasCredentials, credentialFields } = useWebuntisCredentials();
-  const [isWeekA, setIsWeekA] = useState(initialWeekA ?? true);
+  const [alternatingWeeks] = useAlternatingWeeks();
+  const [selectedWeekA, setIsWeekA] = useState(initialWeekA ?? true);
+  const isWeekA = selectedWeekA || !alternatingWeeks;
   const [showDetails, setShowDetails] = useState(true);
   const [showExcluded, setShowExcluded] = useState(false);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
@@ -508,17 +511,17 @@ export function MemberTimetableView({ member, referenceDate, initialWeekA, initi
     });
   };
   const [detail, setDetail] = useState<MemberTimetableDetail | null>(
-    () => getCachedMemberTimetable(member.initials)?.detail ?? null
+    () => getCachedMemberTimetable(member.shorthand)?.detail ?? null
   );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const cached = getCachedMemberTimetable(member.initials);
+    const cached = getCachedMemberTimetable(member.shorthand);
     setDetail(cached?.detail ?? null);
     setError(null);
 
-    if (!hasCredentials || !referenceDate || !member.initials) {
+    if (!hasCredentials || !referenceDate || !member.shorthand) {
       return;
     }
 
@@ -529,7 +532,7 @@ export function MemberTimetableView({ member, referenceDate, initialWeekA, initi
       .then((data) => {
         if (cancelled) return;
         setDetail(data);
-        setCachedMemberTimetable(member.initials, data);
+        setCachedMemberTimetable(member.shorthand, data);
       })
       .catch((err) => {
         console.error('Failed to load member timetable:', err);
@@ -541,7 +544,7 @@ export function MemberTimetableView({ member, referenceDate, initialWeekA, initi
 
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [member.initials, referenceDate, hasCredentials]);
+  }, [member.shorthand, referenceDate, hasCredentials]);
 
   const hasExcludedItems = useMemo(
     () => !!detail?.slots.some((slot) => slot.excludedPeriods.length > 0),
@@ -564,13 +567,17 @@ export function MemberTimetableView({ member, referenceDate, initialWeekA, initi
     <div className="space-y-4">
       <div className="grid grid-cols-3 items-center gap-2">
         <div className="flex items-center gap-3 justify-self-start">
-          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setIsWeekA((w) => !w)}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-sm font-medium w-16 text-center">Week {isWeekA ? 'A' : 'B'}</span>
-          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setIsWeekA((w) => !w)}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+          {alternatingWeeks && (
+            <>
+              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setIsWeekA((w) => !w)}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-sm font-medium w-16 text-center">Week {isWeekA ? 'A' : 'B'}</span>
+              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setIsWeekA((w) => !w)}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </>
+          )}
         </div>
 
         <div className="flex items-center flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-muted-foreground justify-self-center">

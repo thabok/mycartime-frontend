@@ -46,4 +46,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 );
 Button.displayName = "Button";
 
+// eslint react-refresh/only-export-components warning here is cosmetic: it
+// only means this file falls back to full-reload instead of Fast Refresh in
+// dev, since it exports `buttonVariants` alongside the component.
 export { Button, buttonVariants };

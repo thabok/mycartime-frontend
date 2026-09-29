@@ -49,6 +49,15 @@ export function cleanImportedMembers(imported: Member[]): Member[] {
   });
 }
 
+// Older exported member files used the field name "initials" (renamed to
+// "shorthand"); accept both so previously exported files still import cleanly.
+function migrateLegacyShorthand(imported: (Member & { initials?: string })[]): Member[] {
+  return imported.map(({ initials, ...member }) => ({
+    ...member,
+    shorthand: member.shorthand || initials || '',
+  }));
+}
+
 export function parseImportedMembers(text: string): Member[] {
   const imported = JSON.parse(text);
   if (!Array.isArray(imported)) {
@@ -57,5 +66,5 @@ export function parseImportedMembers(text: string): Member[] {
     }
     throw new Error('Invalid format');
   }
-  return cleanImportedMembers(imported as Member[]);
+  return cleanImportedMembers(migrateLegacyShorthand(imported));
 }

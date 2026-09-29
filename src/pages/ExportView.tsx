@@ -27,6 +27,7 @@ export function ExportView() {
   const referenceDate = referenceDateString ? parseISO(referenceDateString) : undefined;
   const showDesignatedDriver = readLocalStorageJson<boolean>('carpool-show-designated-driver') ?? false;
   const showSoloDriver = readLocalStorageJson<boolean>('carpool-show-solo-driver') ?? false;
+  const showDrivesDespitePrefs = readLocalStorageJson<boolean>('carpool-show-drives-despite-prefs') ?? true;
 
   // This route renders outside the main app shell (no <Header>), so the theme
   // toggle's effect never runs here - apply it directly from localStorage.
@@ -51,6 +52,7 @@ export function ExportView() {
         referenceDate={referenceDate}
         showDesignatedDriver={showDesignatedDriver}
         showSoloDriver={showSoloDriver}
+        showDrivesDespitePrefs={showDrivesDespitePrefs}
         isWeekA={isWeekA}
       />
     </div>

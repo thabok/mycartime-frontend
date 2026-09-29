@@ -155,7 +155,7 @@ export function MembersPanel({ members, onMembersChange, hasPlan, onNavigateToPl
     return members.filter(m => 
       m.firstName.toLowerCase().includes(q) ||
       m.lastName.toLowerCase().includes(q) ||
-      m.initials.toLowerCase().includes(q)
+      m.shorthand.toLowerCase().includes(q)
     );
   }, [members, searchQuery]);
 
@@ -190,13 +190,13 @@ export function MembersPanel({ members, onMembersChange, hasPlan, onNavigateToPl
 
   const handleSaveMember = (member: Member) => {
     if (editingMember) {
-      onMembersChange(applyUpdateMember(members, editingMember.initials, member));
+      onMembersChange(applyUpdateMember(members, editingMember.shorthand, member));
       toast({ title: 'Member updated', description: `${member.firstName} ${member.lastName} has been updated.` });
     } else {
-      if (members.some(m => m.initials === member.initials)) {
+      if (members.some(m => m.shorthand === member.shorthand)) {
         toast({
-          title: 'Duplicate initials',
-          description: 'A member with these initials already exists.',
+          title: 'Duplicate shorthand',
+          description: 'A member with these shorthand already exists.',
           variant: 'destructive'
         });
         return;
@@ -212,7 +212,7 @@ export function MembersPanel({ members, onMembersChange, hasPlan, onNavigateToPl
 
   const confirmDelete = () => {
     if (deletingMember) {
-      onMembersChange(applyDeleteMember(members, deletingMember.initials));
+      onMembersChange(applyDeleteMember(members, deletingMember.shorthand));
       toast({ title: 'Member removed', description: `${deletingMember.firstName} ${deletingMember.lastName} has been removed.` });
       setDeletingMember(null);
     }
@@ -354,7 +354,7 @@ export function MembersPanel({ members, onMembersChange, hasPlan, onNavigateToPl
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredMembers.map((member) => (
             <MemberCard
-              key={member.initials}
+              key={member.shorthand}
               member={member}
               onEdit={handleEditMember}
               onEditCustom={handleEditCustom}
@@ -366,7 +366,7 @@ export function MembersPanel({ members, onMembersChange, hasPlan, onNavigateToPl
         <div className="border border-border rounded-xl bg-card divide-y divide-border">
           {filteredMembers.map((member) => (
             <MemberListItem
-              key={member.initials}
+              key={member.shorthand}
               member={member}
               onEdit={handleEditMember}
               onEditCustom={handleEditCustom}
@@ -409,7 +409,7 @@ export function MembersPanel({ members, onMembersChange, hasPlan, onNavigateToPl
           ) : (
             <div className="max-h-[60vh] overflow-y-auto pr-1 space-y-1.5">
               {membersWithCustomPrefs.map(({ member, lines }) => (
-                <div key={member.initials} className="rounded-lg border border-border p-2">
+                <div key={member.shorthand} className="rounded-lg border border-border p-2">
                   <div className="grid grid-cols-[minmax(140px,220px)_1fr] gap-x-12 items-start">
                     <button
                       type="button"
@@ -423,7 +423,7 @@ export function MembersPanel({ members, onMembersChange, hasPlan, onNavigateToPl
                     </button>
                     <div className="space-y-0.2">
                     {lines.map((line) => (
-                      <p key={`${member.initials}-${line}`} className="text-sm text-muted-foreground">
+                      <p key={`${member.shorthand}-${line}`} className="text-sm text-muted-foreground">
                         {line}
                       </p>
                     ))}

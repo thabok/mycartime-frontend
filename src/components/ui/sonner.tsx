@@ -24,4 +24,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
   );
 };
 
+// eslint react-refresh/only-export-components warning here is cosmetic: it
+// only means this file falls back to full-reload instead of Fast Refresh in
+// dev, since it exports `toast` alongside the component.
 export { Toaster, toast };

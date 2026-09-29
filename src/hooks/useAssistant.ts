@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { DayOfWeekABCombo, Member, DrivingPlan } from '@/types/carpool';
+import { DayOfWeekABCombo, Member, DrivingPlan, planHasAlternatingWeeks } from '@/types/carpool';
 import { AssistantAction, AssistantStreamEvent, ChatMessage } from '@/types/assistant';
 import { AssistantDisplayMode } from '@/components/AssistantPanel';
 import { useSessionStorage } from './useSessionStorage';
@@ -18,17 +18,17 @@ interface UseAssistantArgs {
   onPlanChange: (plan: DrivingPlan | null) => void;
 }
 
-const memberLabel = (member: Member) => `${member.firstName} (${member.initials})`;
+const memberLabel = (member: Member) => `${member.firstName} (${member.shorthand})`;
 
 function formatTime(value: number): string {
   const padded = String(value).padStart(4, '0');
   return `${padded.slice(0, -2)}:${padded.slice(-2)}`;
 }
 
-function dayLabel(combo: DayOfWeekABCombo): string {
+function dayLabel(combo: DayOfWeekABCombo, alternatingWeeks: boolean): string {
   const day = combo.dayOfWeek;
   const capitalized = day.charAt(0) + day.slice(1).toLowerCase();
-  return `${capitalized}-${combo.isWeekA ? 'A' : 'B'}`;
+  return alternatingWeeks ? `${capitalized}-${combo.isWeekA ? 'A' : 'B'}` : capitalized;
 }
 
 function describeAction(action: AssistantAction, membersBefore: Member[]): string {
@@ -38,16 +38,16 @@ function describeAction(action: AssistantAction, membersBefore: Member[]): strin
     case 'updateMember':
       return `~ Updated ${memberLabel(action.member)}`;
     case 'deleteMember': {
-      const existing = membersBefore.find(m => m.initials === action.initials);
-      return `- Removed ${existing ? memberLabel(existing) : action.initials}`;
+      const existing = membersBefore.find(m => m.shorthand === action.shorthand);
+      return `- Removed ${existing ? memberLabel(existing) : action.shorthand}`;
     }
     case 'importMembers':
       return `Imported ${action.members.length} members (replaced the list)`;
     case 'exportMembers':
       return 'Exported members to JSON';
     case 'updateCustomDay': {
-      const existing = membersBefore.find(m => m.initials === action.initials);
-      return `~ Updated custom preferences for ${existing ? memberLabel(existing) : action.initials} (day ${action.dayKey})`;
+      const existing = membersBefore.find(m => m.shorthand === action.shorthand);
+      return `~ Updated custom preferences for ${existing ? memberLabel(existing) : action.shorthand} (day ${action.dayKey})`;
     }
     case 'movePassenger':
       return `Moved ${action.passenger} from ${action.fromParty.driver}[${action.fromParty.time}] to ${action.toParty.driver}[${action.toParty.time}]`;
@@ -174,12 +174,12 @@ export function useAssistant({ members, onMembersChange, plan, onPlanChange }: U
             pushDiffLine(describeAction(action, nextMembers));
             break;
           case 'updateMember':
-            nextMembers = applyUpdateMember(nextMembers, action.initials, action.member);
+            nextMembers = applyUpdateMember(nextMembers, action.shorthand, action.member);
             pushDiffLine(describeAction(action, nextMembers));
             break;
           case 'deleteMember':
             pushDiffLine(describeAction(action, nextMembers));
-            nextMembers = applyDeleteMember(nextMembers, action.initials);
+            nextMembers = applyDeleteMember(nextMembers, action.shorthand);
             break;
           case 'importMembers':
             nextMembers = applyImportMembers(nextMembers, action.members);
@@ -188,7 +188,7 @@ export function useAssistant({ members, onMembersChange, plan, onPlanChange }: U
           case 'updateCustomDay':
             pushDiffLine(describeAction(action, nextMembers));
             nextMembers = nextMembers.map(m =>
-              m.initials === action.initials
+              m.shorthand === action.shorthand
                 ? { ...m, customDays: { ...m.customDays, [action.dayKey]: action.customDay } }
                 : m
             );
@@ -198,9 +198,9 @@ export function useAssistant({ members, onMembersChange, plan, onPlanChange }: U
             const dayKey = findDayKeyByUniqueNumber(nextPlan, action.dayUniqueNumber);
             const dayPlan = dayKey ? nextPlan.dayPlans[dayKey] : undefined;
             if (!dayPlan || !canTransferPassenger(dayPlan, action)) break;
-            const label = dayLabel(dayPlan.dayOfWeekABCombo);
+            const label = dayLabel(dayPlan.dayOfWeekABCombo, planHasAlternatingWeeks(nextPlan));
             // A driver has one party per direction per day with the same `driver`
-            // initials, so times must be compared within the move's own direction
+            // shorthand, so times must be compared within the move's own direction
             // (schoolbound/homebound) — otherwise this conflates the two parties.
             const schoolbound = dayPlan.parties.find(
               p => p.driver === action.fromParty.driver && p.time === action.fromParty.time
@@ -268,7 +268,7 @@ export function useAssistant({ members, onMembersChange, plan, onPlanChange }: U
       setStatusMessage('');
       setIsSending(false);
     }
-  }, [messages, members, plan, isSending, location, navigate, onMembersChange, onPlanChange, setMessages, pickStatusMessage]);
+  }, [messages, members, plan, isSending, location, navigate, onMembersChange, onPlanChange, setMessages, setStatusMessage, pickStatusMessage]);
 
   const revertTurn = useCallback((messageId: string) => {
     const message = messages.find(m => m.id === messageId);

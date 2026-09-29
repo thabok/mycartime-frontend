@@ -43,27 +43,27 @@ describe('cleanImportedMembers', () => {
   const buildMember = (overrides: Partial<Member> = {}): Member => ({
     firstName: 'Rabea',
     lastName: 'Wirth',
-    initials: 'Wr',
+    shorthand: 'Wr',
     numberOfSeats: 5,
     ...overrides,
   });
 
   it('carries over basic fields untouched', () => {
     const [result] = cleanImportedMembers([
-      buildMember({ firstName: 'Tim', lastName: 'Kiel', initials: 'Ki', numberOfSeats: 3 }),
+      buildMember({ firstName: 'Tim', lastName: 'Kiel', shorthand: 'Ki', numberOfSeats: 3 }),
     ]);
     expect(result).toEqual({
       firstName: 'Tim',
       lastName: 'Kiel',
-      initials: 'Ki',
+      shorthand: 'Ki',
       numberOfSeats: 3,
     });
   });
 
   it('preserves isPartTime when true and when false', () => {
     const [partTime, fullTime] = cleanImportedMembers([
-      buildMember({ initials: 'Pt', isPartTime: true }),
-      buildMember({ initials: 'Ft', isPartTime: false }),
+      buildMember({ shorthand: 'Pt', isPartTime: true }),
+      buildMember({ shorthand: 'Ft', isPartTime: false }),
     ]);
     expect(partTime.isPartTime).toBe(true);
     expect(fullTime.isPartTime).toBe(false);
@@ -210,7 +210,7 @@ describe('cleanImportedMembers', () => {
       buildMember({
         firstName: 'Rabea',
         lastName: 'Wirth',
-        initials: 'Wr',
+        shorthand: 'Wr',
         customDays: {
           '1': { ...emptyDay(), customEnd: '9:25' },
           '3': { ...emptyDay(), noWaitingAfternoon: true, needsCar: true },
@@ -219,7 +219,7 @@ describe('cleanImportedMembers', () => {
       buildMember({
         firstName: 'Tim',
         lastName: 'Kiel',
-        initials: 'Ki',
+        shorthand: 'Ki',
         customDays: {
           '2': { ...emptyDay(), customStart: '11:40' },
           '9': emptyDay(),
@@ -240,7 +240,7 @@ describe('parseImportedMembers', () => {
       {
         firstName: 'Rabea',
         lastName: 'Wirth',
-        initials: 'Wr',
+        shorthand: 'Wr',
         numberOfSeats: 5,
         customDays: {
           '1': { ...emptyDay(), customEnd: '9:25' },

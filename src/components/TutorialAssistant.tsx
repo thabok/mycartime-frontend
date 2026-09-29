@@ -41,7 +41,7 @@ const STEP_COPY: Record<TutorialStep, { title: string; description: string; acti
   },
   results: {
     title: 'Look through the results',
-    description: 'Visit the Summary and then open Week A, Week B, or the Complete Plan to see the generated schedule.',
+    description: 'Visit the Summary and then open the plan itself (Week A, Week B, or the Complete Plan) to see the generated schedule.',
     action: 'View Summary',
   },
   manualChanges: {

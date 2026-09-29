@@ -26,14 +26,14 @@ export interface PlanSolutionMetrics {
   /**
    * Weekdays a member drives in only one of the two weeks, summed over members.
    * The solver's secondary goal: 0 means everyone drives the same weekdays in
-   * week A and week B.
+   * week A and week B. Only reported with alternating weeks.
    */
-  weekABMismatches: number;
+  weekABMismatches?: number;
   /**
    * How far members' week A vs week B drive counts diverge, beyond the one day
-   * that an odd total makes unavoidable.
+   * that an odd total makes unavoidable. Only reported with alternating weeks.
    */
-  weekABCountImbalance: number;
+  weekABCountImbalance?: number;
   objective: number;
   bestObjectiveBound: number;
   elapsedSeconds: number;

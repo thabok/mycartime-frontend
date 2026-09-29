@@ -5,7 +5,7 @@ import { DrivingPlan, DayPlan, Member, Party } from '@/types/carpool';
 const buildMember = (overrides: Partial<Member> = {}): Member => ({
   firstName: 'First',
   lastName: 'Last',
-  initials: 'AB',
+  shorthand: 'AB',
   numberOfSeats: 4,
   ...overrides,
 });
@@ -25,8 +25,8 @@ const buildParty = (overrides: Partial<Party> = {}): Party => ({
 const buildDayPlan = (parties: Party[]): DayPlan => ({
   dayOfWeekABCombo: { dayOfWeek: 'MONDAY', isWeekA: true, uniqueNumber: 1 },
   parties,
-  schoolboundTimesByInitials: {},
-  homeboundTimesByInitials: {},
+  schoolboundTimesByShorthand: {},
+  homeboundTimesByShorthand: {},
 });
 
 const buildPlan = (dayPlan: DayPlan): DrivingPlan => ({
@@ -95,7 +95,7 @@ describe('canApplyTransfers', () => {
       buildParty({ driver: 'AB', time: 755, passengers: ['CD'] }),
       buildParty({ driver: 'EF', time: 800, passengers: ['GH'] }),
     ]);
-    const members = [buildMember({ initials: 'AB', numberOfSeats: 2 }), buildMember({ initials: 'EF', numberOfSeats: 2 })];
+    const members = [buildMember({ shorthand: 'AB', numberOfSeats: 2 }), buildMember({ shorthand: 'EF', numberOfSeats: 2 })];
 
     const ok = canApplyTransfers(dayPlan, [
       { passenger: 'CD', fromParty: { driver: 'AB', time: 755 }, toParty: { driver: 'EF', time: 800 } },
@@ -110,7 +110,7 @@ describe('canApplyTransfers', () => {
       buildParty({ driver: 'AB', time: 755, passengers: ['CD'] }),
       buildParty({ driver: 'EF', time: 800, passengers: ['GH'] }),
     ]);
-    const members = [buildMember({ initials: 'AB', numberOfSeats: 2 }), buildMember({ initials: 'EF', numberOfSeats: 2 })];
+    const members = [buildMember({ shorthand: 'AB', numberOfSeats: 2 }), buildMember({ shorthand: 'EF', numberOfSeats: 2 })];
 
     const ok = canApplyTransfers(dayPlan, [
       { passenger: 'GH', fromParty: { driver: 'EF', time: 800 }, toParty: { driver: 'AB', time: 755 } },

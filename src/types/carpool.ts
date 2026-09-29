@@ -12,7 +12,7 @@ export interface CustomDay {
 export interface Member {
   firstName: string;
   lastName: string;
-  initials: string;
+  shorthand: string;
   numberOfSeats: number;
   isPartTime?: boolean;
   targetDriveCount?: number;
@@ -21,6 +21,7 @@ export interface Member {
 
 export interface DayOfWeekABCombo {
   dayOfWeek: 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY';
+  /** Always true in plans without alternating weeks. */
   isWeekA: boolean;
   uniqueNumber: number;
 }
@@ -47,10 +48,10 @@ export interface TimeInfo {
 export interface DayPlan {
   dayOfWeekABCombo: DayOfWeekABCombo;
   parties: Party[];
-  schoolboundTimesByInitials: Record<string, number>;
-  homeboundTimesByInitials: Record<string, number>;
-  schoolboundTimeInfoByInitials?: Record<string, TimeInfo>;
-  homeboundTimeInfoByInitials?: Record<string, TimeInfo>;
+  schoolboundTimesByShorthand: Record<string, number>;
+  homeboundTimesByShorthand: Record<string, number>;
+  schoolboundTimeInfoByShorthand?: Record<string, TimeInfo>;
+  homeboundTimeInfoByShorthand?: Record<string, TimeInfo>;
 }
 
 /**
@@ -72,16 +73,17 @@ export interface QualityMetrics {
       dayOfWeek: string; // MONDAY .. FRIDAY
       isWeekA: boolean;
       time: number; // HHMM format
-      driver: { initials: string; firstName: string };
-      passengers: { initials: string; firstName: string }[];
+      driver: { shorthand: string; firstName: string };
+      passengers: { shorthand: string; firstName: string }[];
     }[];
   };
-  abDriverMismatch: {
+  /** Only present for plans with alternating weeks. */
+  abDriverMismatch?: {
     value: number; // percentage, 0-100
     mismatchedCount: number;
     totalMembers: number;
     members: {
-      initials: string;
+      shorthand: string;
       firstName: string;
       /** 0=Monday .. 4=Friday, the weekdays this member drives in week A. */
       weekdaysA: number[];
@@ -89,12 +91,13 @@ export interface QualityMetrics {
       weekdaysB: number[];
     }[];
   };
-  passengerAbStability: {
+  /** Only present for plans with alternating weeks. */
+  passengerAbStability?: {
     value: number; // percentage, 0-100
     matchedCount: number;
     totalComparableRides: number;
     mismatches: {
-      initials: string;
+      shorthand: string;
       weekday: number; // 0=Monday .. 4=Friday
       schoolbound: boolean;
       driverA: string;
@@ -109,6 +112,12 @@ export interface DrivingPlan {
   memberIdMap?: Record<string, string>;
   scheduleUrlTemplate?: string;
   qualityMetrics?: QualityMetrics;
+  /** Absent on plans generated before the setting existed, which all have A/B weeks. */
+  alternatingWeeks?: boolean;
+}
+
+export function planHasAlternatingWeeks(plan: DrivingPlan): boolean {
+  return plan.alternatingWeeks !== false;
 }
 
 export type ViewMode = 'members' | 'plan';
@@ -152,7 +161,7 @@ export interface MemberTimetableSlot {
 }
 
 export interface MemberTimetableDetail {
-  initials: string;
+  shorthand: string;
   queryRangeStart: string;
   queryRangeEnd: string;
   slots: MemberTimetableSlot[]; // 10 entries, day_num order

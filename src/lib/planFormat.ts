@@ -14,13 +14,13 @@ export const formatTime = (time: number): string => {
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 };
 
-export const buildMembersByInitials = (members: Member[]): Map<string, Member> => {
+export const buildMembersByShorthand = (members: Member[]): Map<string, Member> => {
   const map = new Map<string, Member>();
-  members.forEach(m => map.set(m.initials.toLowerCase(), m));
+  members.forEach(m => map.set(m.shorthand.toLowerCase(), m));
   return map;
 };
 
-// plan.summary lines look like "- Name (Initials): Count" - see
+// plan.summary lines look like "- Name (Shorthand): Count" - see
 // backend's PlanBuilder.generate_summary(). Each Count is the number of
 // distinct days that member drove (both legs of a day count once), summed
 // across the full two-week A/B cycle.
@@ -35,12 +35,12 @@ export const getTotalDriveCount = (summary: string): number =>
 
 const NBSP = String.fromCharCode(160);
 
-// Format initials as "FirstName (Initials)" with a non-breaking space so the
+// Format shorthand as "FirstName (Shorthand)" with a non-breaking space so the
 // pair never wraps across lines.
-export const formatPersonDisplay = (initials: string, membersByInitials: Map<string, Member>): string => {
-  const member = membersByInitials.get(initials.toLowerCase());
+export const formatPersonDisplay = (shorthand: string, membersByShorthand: Map<string, Member>): string => {
+  const member = membersByShorthand.get(shorthand.toLowerCase());
   if (member) {
-    return `${member.firstName}${NBSP}(${member.initials})`;
+    return `${member.firstName}${NBSP}(${member.shorthand})`;
   }
-  return initials;
+  return shorthand;
 };

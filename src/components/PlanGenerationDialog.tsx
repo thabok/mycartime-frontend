@@ -47,16 +47,18 @@ function SolverMetricsGrid({ metrics }: { metrics: PlanSolutionMetrics }) {
   return (
     <MetricsGrid>
       <Metric
-        label="Over their limit"
+        label="Over their target"
         value={metrics.numOverMaxDrives}
-        hint={`${metrics.numOverMaxDrives} drive > max`}
+        hint={`${metrics.numOverMaxDrives} drive more than their target`}
       />
       <Metric label="Busiest member" value={`${metrics.maxDrives} days`} />
-      <Metric
-        label="Differing weekdays A/B"
-        value={metrics.weekABMismatches}
-        hint="lower is better"
-      />
+      {metrics.weekABMismatches !== undefined && (
+        <Metric
+          label="Differing weekdays A/B"
+          value={metrics.weekABMismatches}
+          hint="lower is better"
+        />
+      )}
       <Metric label="Total drives" value={metrics.totalDrives} />
     </MetricsGrid>
   );

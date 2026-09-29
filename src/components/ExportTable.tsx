@@ -1,5 +1,5 @@
-import { DrivingPlan, DayPlan, Party, Member } from '@/types/carpool';
-import { DAY_NAMES, formatTime, buildMembersByInitials, formatPersonDisplay } from '@/lib/planFormat';
+import { DrivingPlan, DayPlan, Party, Member, planHasAlternatingWeeks } from '@/types/carpool';
+import { DAY_NAMES, formatTime, buildMembersByShorthand, formatPersonDisplay } from '@/lib/planFormat';
 import { cn } from '@/lib/utils';
 import { WeekSeparator } from '@/components/WeekSeparator';
 import { AlertTriangle, Flag, UserRoundX } from 'lucide-react';
@@ -26,11 +26,12 @@ export function ExportTable({
   showDrivesDespitePrefs,
   isWeekA,
 }: ExportTableProps) {
-  const membersByInitials = buildMembersByInitials(members);
-  const formatPerson = (initials: string) => formatPersonDisplay(initials, membersByInitials);
+  const membersByShorthand = buildMembersByShorthand(members);
+  const formatPerson = (shorthand: string) => formatPersonDisplay(shorthand, membersByShorthand);
 
+  const alternatingWeeks = planHasAlternatingWeeks(plan);
   const filteredDayPlans = Object.entries(plan.dayPlans)
-    .filter(([, dayPlan]) => dayPlan.dayOfWeekABCombo.isWeekA === isWeekA)
+    .filter(([, dayPlan]) => !alternatingWeeks || dayPlan.dayOfWeekABCombo.isWeekA === isWeekA)
     .sort(([a], [b]) => parseInt(a) - parseInt(b));
 
   const renderPartyLine = (party: Party, isLast: boolean) => (
@@ -58,10 +59,10 @@ export function ExportTable({
       {party.passengers.length > 0 && (
         <span className="text-muted-foreground">
           {' · '}
-          {party.passengers.map((initials, idx) => (
-            <span key={initials}>
+          {party.passengers.map((shorthand, idx) => (
+            <span key={shorthand}>
               {idx > 0 && ' · '}
-              {formatPerson(initials)}
+              {formatPerson(shorthand)}
             </span>
           ))}
         </span>
@@ -99,7 +100,7 @@ export function ExportTable({
 
   return (
     <div data-export-capture="true" className="bg-background text-foreground p-6 w-fit mx-auto space-y-2">
-      <WeekSeparator isWeekA={isWeekA} referenceDate={referenceDate} />
+      <WeekSeparator isWeekA={isWeekA} referenceDate={referenceDate} alternatingWeeks={alternatingWeeks} />
       <div className="rounded-lg border border-border overflow-hidden">
         <table className="w-auto">
           <thead>

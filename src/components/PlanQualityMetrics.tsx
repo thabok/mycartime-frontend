@@ -9,8 +9,8 @@ const WEEKDAY_LABELS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 const formatWeekdays = (weekdays: number[]): string =>
   weekdays.length > 0 ? weekdays.map((w) => WEEKDAY_LABELS[w]).join(' + ') : 'none';
 
-const formatPerson = (person: { initials: string; firstName: string }): string =>
-  `${person.firstName} (${person.initials})`;
+const formatPerson = (person: { shorthand: string; firstName: string }): string =>
+  `${person.firstName} (${person.shorthand})`;
 
 /**
  * "How good is this plan" cards for the summary tab. Definitions mirror
@@ -24,13 +24,13 @@ export function PlanQualityMetrics({ metrics }: { metrics: QualityMetrics }) {
     ? `${notPackedCount} of ${metrics.packedParties.totalRides} parties don't need someone to sit in the infamous back row middle seat`
     : 'no rides';
 
-  const matchedAbValue = 100 - metrics.abDriverMismatch.value;
-  const matchedAbCount = metrics.abDriverMismatch.totalMembers - metrics.abDriverMismatch.mismatchedCount;
-
-  const passengerAbStabilityHint = `In ${metrics.passengerAbStability.matchedCount} of ${metrics.passengerAbStability.totalComparableRides} rides, passengers keep the same driver A/B`;
+  // Both A/B metrics are absent for plans without alternating weeks.
+  const abDriverMismatch = metrics.abDriverMismatch;
+  const passengerAbStability = metrics.passengerAbStability;
+  const alternatingWeeks = Boolean(abDriverMismatch || passengerAbStability);
 
   return (
-    <MetricsGrid>
+    <MetricsGrid columns={alternatingWeeks ? 4 : 2}>
       <Metric
         label="Flexibility"
         value={`${metrics.flexibility.value}%`}
@@ -51,21 +51,22 @@ export function PlanQualityMetrics({ metrics }: { metrics: QualityMetrics }) {
         value={`${notPackedValue}%`}
         hint={notPackedHint}
         icon={ArmchairIcon} />
+      {abDriverMismatch && (
       <Metric
         label="Matched driving days A/B"
-        value={`${matchedAbValue}%`}
-        hint={`${matchedAbCount} of ${metrics.abDriverMismatch.totalMembers} members have matched A/B driving days`}
+        value={`${100 - abDriverMismatch.value}%`}
+        hint={`${abDriverMismatch.totalMembers - abDriverMismatch.mismatchedCount} of ${abDriverMismatch.totalMembers} members have matched A/B driving days`}
         icon={CalendarCheck2}
         tooltip={
           <>Members with unmatched A/B driving days:<br/><br/>
-            {metrics.abDriverMismatch.members.length > 0 && (
+            {abDriverMismatch.members.length > 0 && (
               <ul className="list-disc pl-4 space-y-0.5">
-                {metrics.abDriverMismatch.members.map((m) => (
-                  <li key={m.initials}>
-                    <span className="font-bold">{m.firstName} ({m.initials})</span>
+                {abDriverMismatch.members.map((m) => (
+                  <li key={m.shorthand}>
+                    <span className="font-bold">{m.firstName} ({m.shorthand})</span>
                     <ul className="space-y-0.5">
-                      <li key={m.initials + '-week-a'}>A: {formatWeekdays(m.weekdaysA)}</li>
-                      <li key={m.initials + '-week-b'}>B: {formatWeekdays(m.weekdaysB)}</li>
+                      <li key={m.shorthand + '-week-a'}>A: {formatWeekdays(m.weekdaysA)}</li>
+                      <li key={m.shorthand + '-week-b'}>B: {formatWeekdays(m.weekdaysB)}</li>
                     </ul>
                   </li>
                 ))}
@@ -74,12 +75,15 @@ export function PlanQualityMetrics({ metrics }: { metrics: QualityMetrics }) {
           </>
         }
       />
-      <Metric
-        label="Same driver A/B"
-        value={`${metrics.passengerAbStability.value}%`}
-        hint={passengerAbStabilityHint}
-        icon={UserCheck}
-      />
+      )}
+      {passengerAbStability && (
+        <Metric
+          label="Same driver A/B"
+          value={`${passengerAbStability.value}%`}
+          hint={`In ${passengerAbStability.matchedCount} of ${passengerAbStability.totalComparableRides} rides, passengers keep the same driver A/B`}
+          icon={UserCheck}
+        />
+      )}
     </MetricsGrid>
   );
 }
