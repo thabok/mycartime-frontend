@@ -13,7 +13,7 @@ const member = (overrides: Partial<Member> = {}): Member => ({
 describe('defaultTargetDriveCount', () => {
   it('distinguishes full- and part-time members with alternating weeks', () => {
     expect(defaultTargetDriveCount(false, true)).toBe(4);
-    expect(defaultTargetDriveCount(true, true)).toBe(2);
+    expect(defaultTargetDriveCount(true, true)).toBe(3);
   });
 
   it('uses the same default for everyone without alternating weeks', () => {
@@ -29,7 +29,7 @@ describe('hasCustomTargetDriveCount', () => {
 
   it('is false when the stored value equals the default for the current mode', () => {
     expect(hasCustomTargetDriveCount(member({ targetDriveCount: 4 }), true)).toBe(false);
-    expect(hasCustomTargetDriveCount(member({ isPartTime: true, targetDriveCount: 2 }), true)).toBe(false);
+    expect(hasCustomTargetDriveCount(member({ isPartTime: true, targetDriveCount: 3 }), true)).toBe(false);
   });
 
   it('is true when the stored value differs from the default for the current mode', () => {
