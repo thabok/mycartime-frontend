@@ -80,7 +80,12 @@ export function FeedbackDialog({ open, onOpenChange }: FeedbackDialogProps) {
       const response = await fetch(`${backendHostAndPort}/api/v1/feedback`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: title.trim(), description: description.trim(), label }),
+        body: JSON.stringify({
+          title: title.trim(),
+          description: description.trim(),
+          label,
+          version: __APP_VERSION__,
+        }),
       });
 
       if (!response.ok) {

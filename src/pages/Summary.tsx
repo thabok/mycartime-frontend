@@ -185,7 +185,7 @@ const Summary = () => {
                   Enjoying the app?
                 </div>
                 <p>
-                  If it's saving you time, consider{' '}
+                  If it's saving you time and money, consider{' '}
                   <a href="https://ko-fi.com/thabok" target="_blank" rel="noreferrer" className="text-primary underline hover:text-primary/90">
                     buying me a coffee
                   </a>{' '}

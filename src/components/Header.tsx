@@ -6,6 +6,7 @@ import { PreferencesDialog } from '@/components/PreferencesDialog';
 import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
 import { useTheme } from '@/hooks/useTheme';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { TutorialProgress } from '@/lib/tutorial';
 
 interface HeaderProps {
@@ -78,16 +79,23 @@ export function Header({
     <header className="flex-shrink-0 border-b border-border bg-card/50 backdrop-blur-sm z-50">
       <div className="container mx-auto px-4 py-4 max-w-5xl">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-primary/10">
-              <Car className="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-xl font-semibold text-foreground">Carpool Planner</h1>
-              <p className="text-sm text-muted-foreground">For Teachers</p>
-            </div>
-          </div>
-          
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-primary/10">
+                  <Car className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-semibold text-foreground">Carpool Planner</h1>
+                  <p className="text-sm text-muted-foreground">For Teachers</p>
+                </div>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" align="start">
+              Version {__APP_VERSION__} · released {__BUILD_DATE__}
+            </TooltipContent>
+          </Tooltip>
+
           <nav className="flex items-center gap-2">
           <Button
             variant="ghost"
