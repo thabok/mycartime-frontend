@@ -49,7 +49,7 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [shorthand, setShorthand] = useState('');
-  const [numberOfSeats, setNumberOfSeats] = useState(4);
+  const [numberOfSeats, setNumberOfSeats] = useState(5);
   const [isPartTime, setIsPartTime] = useState(false);
   const [alternatingWeeks] = useAlternatingWeeks();
   const [targetDriveCount, setTargetDriveCount] = useState(() => defaultTargetDriveCount(false, alternatingWeeks));
@@ -69,7 +69,7 @@ export function MemberDialog({ open, onOpenChange, member, onSave, initialTab = 
       setFirstName('');
       setLastName('');
       setShorthand('');
-      setNumberOfSeats(4);
+      setNumberOfSeats(5);
       setIsPartTime(false);
       setTargetDriveCount(defaultTargetDriveCount(false, alternatingWeeks));
       setCustomDays({});

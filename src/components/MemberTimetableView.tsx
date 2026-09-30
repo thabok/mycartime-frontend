@@ -612,7 +612,7 @@ export function MemberTimetableView({ member, referenceDate, initialWeekA, initi
       )}
 
       {!isLoading && error && (
-        <div className="text-sm text-destructive-foreground bg-destructive/10 rounded-lg p-3">{error}</div>
+        <div className="text-sm text-destructive bg-destructive/10 rounded-lg p-3">{error}</div>
       )}
 
       {!isLoading && !hasCredentials && !detail && (
