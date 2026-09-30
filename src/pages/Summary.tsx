@@ -82,7 +82,7 @@ const Summary = () => {
 
           <HeroMetric
             icon={Car}
-            label="Drives saved / term"
+            label="Drives saved per term"
             value={numberFormat.format(drivesSaved)}
             tooltip={
               <>

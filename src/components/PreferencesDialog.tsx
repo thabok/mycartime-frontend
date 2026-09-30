@@ -142,7 +142,7 @@ const CONFIG_FIELDS: ConfigField[] = [
     type: 'select',
     options: [
       { value: 'password', label: 'Password' },
-      { value: 'secret', label: 'Secret key (IServ / SSO)' },
+      { value: 'secret', label: 'Secret key' },
     ],
   },
   {
