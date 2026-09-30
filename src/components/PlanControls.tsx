@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { getBackendUrl } from '@/lib/config';
 import { useToast } from '@/hooks/use-toast';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useAlternatingWeeks } from '@/hooks/useAlternatingWeeks';
 import { useWebuntisCredentials } from '@/hooks/useWebuntisCredentials';
 import { refreshTimetableCache } from '@/lib/timetableCache';
 import { useSpinnerVerbs } from '@/hooks/useSpinnerVerbs';
@@ -55,6 +56,7 @@ export function PlanControls({
   onOpenWebuntisSettings,
 }: PlanControlsProps) {
   const { credentialFields } = useWebuntisCredentials();
+  const [alternatingWeeks] = useAlternatingWeeks();
   const [referenceDateString, setReferenceDateString] = useLocalStorage<string | null>('carpool-reference-date', null);
   const [referenceDate, setReferenceDate] = useState<Date | undefined>(() => {
     if (referenceDateString) {
@@ -310,7 +312,7 @@ export function PlanControls({
             <CardTitle className="text-base">Reference Date</CardTitle>
           </div>
           <CardDescription>
-            Marks the start of the current schedule and references week A.
+            Marks the start of the current schedule{alternatingWeeks ? ' and references week A' : ''}.
           </CardDescription>
         </CardHeader>
         <CardContent>
